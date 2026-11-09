@@ -1,10 +1,10 @@
 <!doctype html>
-<!-- Ticker Wall 1.0.0-beta.13 · versions and changelog: CHANGELOG.md -->
+<!-- Ticker Wall 1.0.0-beta.14 · versions and changelog: CHANGELOG.md -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="version" content="1.0.0-beta.13">
+<meta name="version" content="1.0.0-beta.14">
 <title>Ticker Wall</title>
 <script>try { var t = localStorage.getItem("ticker-wall.theme"); if (t === "dark" || t === "light") document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -225,19 +225,23 @@ body.editing .seg-add { display: inline-block; }
 .timebar:has(> #sessions[data-mode="beside"]) .feed-alert {
   position: absolute; top: 100%; left: 0; width: var(--alert-w, 100%); min-width: 0; margin-top: 8px; z-index: 6;
 }
+/* a quiet card: red dot, what's wrong, when it retries, and Retry on the right */
 .fa-row {
-  display: inline-flex; align-items: center; gap: 4px 10px; flex-wrap: wrap; max-width: 100%;
-  padding: 6px 6px 6px 14px; border-radius: 18px;
-  background: color-mix(in srgb, var(--down) 10%, var(--panel)); color: var(--fg);
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "dot t btn" ". s btn";
+  align-items: center; column-gap: 10px; row-gap: 1px; width: 100%; box-sizing: border-box;
+  padding: 10px 12px 10px 14px; border-radius: 14px; background: var(--panel); color: var(--fg);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--line) 70%, transparent);
   font-size: 14px; line-height: 1.3; letter-spacing: -.015em;
 }
-.fa-row b { color: var(--down); font-weight: 600; }
+.fa-row .fa-dot { grid-area: dot; }
+.fa-row b { grid-area: t; font-weight: 600; }
+.fa-row > span:not(.fa-dot) { grid-area: s; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.fa-row .fa-retry { grid-area: btn; }
 .fa-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--down); flex: none; animation: faPulse 2s ease-in-out infinite; }
 @keyframes faPulse { 50% { opacity: .35; } }
 .fa-retry {
-  border: 0; cursor: pointer; border-radius: 980px; padding: 3px 12px;
-  background: var(--panel); color: var(--accent); font-size: 13px; font-weight: 600;
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--fg) 12%, transparent);
+  border: 0; cursor: pointer; border-radius: 980px; padding: 7px 14px; min-height: 32px;
+  background: var(--fill); color: var(--accent-ink); font-size: 14px; font-weight: 600;
 }
 .fa-retry:hover { background: var(--fill); }
 @media (prefers-reduced-motion: reduce) { .fa-dot { animation: none; } }
@@ -428,8 +432,11 @@ body.dragging .row:not(.lifting) { pointer-events: none; }
   .row[data-dir="up"] .r-chg { color: var(--up); } .row[data-dir="down"] .r-chg { color: var(--down); }
   .lv .row.frozen .r-chg, body.editing .lv .row .r-chg { color: var(--muted) !important; background: none !important; opacity: 1; }
   /* edit mode: the × sits at the end */
-  body.editing .row { grid-template-columns: 36px minmax(0, 1fr) auto auto 32px; grid-template-areas: "logo name price price rm" "logo name abs pct rm"; }
-  .row > .rm { width: 32px; height: 32px; align-self: center; }
+  /* editing: no × (too easy to hit next to the menu button); swipe a row left or right to remove it */
+  body.editing .row > .rm { display: none; }
+  body.editing .row { grid-template-columns: 36px minmax(0, 1fr) auto auto; grid-template-areas: "logo name price price" "logo name abs pct"; }
+  .row.swiping { position: relative; z-index: 2; background: var(--panel); }
+  .row.swipe-go { opacity: .5; }
   .row.picking .picker { right: 42px; }
 }
 @media (max-width: 374px) {   /* small phones: the three markets share the width evenly, times may wrap */
@@ -461,7 +468,7 @@ body.dragging .row:not(.lifting) { pointer-events: none; }
 /* Icon controls in the top bar: Tiles/List and the dark-mode button (labels only in the phone menu) */
 .ico { display: block; fill: currentColor; }
 #viewSeg .seg-name { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding-inline: 12px; }
-.m-lbl, .ed-ico { display: none; }
+.m-lbl, .ed-ico, .ph-only { display: none; }
 .icon-btn { display: inline-grid; place-items: center; grid-auto-flow: column; gap: 10px; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--fg); cursor: pointer; }
 .icon-btn:hover { background: var(--fill); }
 .icon-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -471,7 +478,12 @@ body.dragging .row:not(.lifting) { pointer-events: none; }
 @media (max-width: 600px) {
   .gnav-in { position: relative; flex-wrap: nowrap; column-gap: 10px; min-height: 54px; }
   .gnav-in > .feeds { display: none; }
-  .page { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }   /* room to scroll the last row clear of the button */
+  .page { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+  .ph-only { display: inline; }
+  .timebar > .now { flex: 1 1 100%; min-width: 0; }
+  /* feed alert: edge to edge, like the list rows below it */
+  .feed-alert { width: auto; min-width: 0; margin-inline: calc(-1 * max(22px, env(safe-area-inset-left, 0px))) calc(-1 * max(22px, env(safe-area-inset-right, 0px))); }
+  .fa-row { border-radius: 0; box-shadow: none; padding: 12px max(22px, env(safe-area-inset-right, 0px)) 12px max(22px, env(safe-area-inset-left, 0px)); min-height: 56px; }   /* room to scroll the last row clear of the button */
   /* Floating menu button, bottom right (thumb reach), as in the TradingView app. Moved to <body> by script. */
   .more-btn {
     display: grid; place-items: center; position: fixed; z-index: 61;
@@ -487,6 +499,14 @@ body.dragging .row:not(.lifting) { pointer-events: none; }
   /* a feed with a problem: a dot on the button (the alert under the clock says more) */
   .more-btn.warn::after { content: ""; position: absolute; top: 6px; right: 8px; width: 10px; height: 10px; border-radius: 50%; background: var(--warn); box-shadow: 0 0 0 2px var(--panel); }
   .more-btn.bad::after { background: var(--down); }
+  /* Editing: a blue ✓ button above the menu button leaves edit mode */
+  body.editing .done-btn {
+    display: grid; place-items: center; position: fixed; z-index: 61; padding: 0; font-size: 0;
+    right: calc(max(16px, env(safe-area-inset-right, 0px)) + 6px); bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+    width: 44px; height: 44px; border-radius: 50%; background: var(--accent); color: #fff; box-shadow: 0 6px 18px rgba(0,0,0,.18);
+  }
+  body.editing .done-btn svg { display: block; }
+  body.editing:has(.nav-tools.open) .done-btn { display: none; }
   /* The menu: a card that rises from the button. Order: Edit, lists, view + dark, Import/Export, sessions, feeds. */
   .nav-tools {
     display: none; position: fixed; z-index: 60;
@@ -535,8 +555,8 @@ body.dragging .row:not(.lifting) { pointer-events: none; }
 
 /* Touch screens: small controls keep their look but get a 44px tap area (Apple's minimum) */
 @media (pointer: coarse), (max-width: 600px) {
-  .tool, .tv-x, .done-btn, .ver, .keys-link, .tv-iv .seg-name, .nav-tools .seg-name { position: relative; }
-  .tool::before, .tv-x::before, .done-btn::before, .ver::before, .keys-link::before, .tv-iv .seg-name::before, .nav-tools .seg-name::before {
+  .tool, .tv-x, .ver, .keys-link, .tv-iv .seg-name, .nav-tools .seg-name { position: relative; }
+  .tool::before, .tv-x::before, .ver::before, .keys-link::before, .tv-iv .seg-name::before, .nav-tools .seg-name::before {
     content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%);
   }
 }
@@ -889,7 +909,7 @@ body.fit .track { height: max(4px, calc(var(--fp, 80px) * .05)); }
     <div class="feeds" id="feeds"></div>
     <div class="spacer"></div>
     <!-- phones: the controls live in a menu under ••• (as in the Stocks app); "Done" leaves edit mode -->
-    <button class="pill done-btn" id="doneBtn" type="button">Done</button>
+    <button class="pill done-btn" id="doneBtn" type="button" aria-label="Done editing" title="Done editing"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     <button class="more-btn" id="moreBtn" type="button" aria-label="Menu" aria-expanded="false" aria-controls="navTools"><svg class="dots" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><rect x="4" y="6" width="16" height="2.2" rx="1.1"/><rect x="4" y="10.9" width="16" height="2.2" rx="1.1"/><rect x="4" y="15.8" width="16" height="2.2" rx="1.1"/></svg><svg class="x" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" fill="none"/></svg></button>
     <div class="nav-tools" id="navTools">
     <div class="feeds menu-feeds" id="menuFeeds" aria-hidden="true"></div>
@@ -931,7 +951,7 @@ body.fit .track { height: max(4px, calc(var(--fp, 80px) * .05)); }
       </div>
       <div id="addPickerSlot"></div>
       <div class="ed-foot">
-        <p class="note">Prices pause while editing · click a pair's name to change it · drag to reorder · <button class="keys-link" type="button" id="keysLink">Shortcuts <kbd>?</kbd></button></p>
+        <p class="note">Prices pause while editing · click a pair's name to change it · drag to reorder<span class="ph-only"> · swipe a row sideways to remove it</span> · <button class="keys-link" type="button" id="keysLink">Shortcuts <kbd>?</kbd></button></p>
         <div class="form-msg" id="formMsg" role="status"></div>
       </div>
     </section>
@@ -1105,12 +1125,12 @@ async function refreshBinanceList() {
 /* ======================================================================
    Exchanges + state
    ====================================================================== */
-const APP_VERSION = "1.0.0-beta.13";   // SemVer; see CHANGELOG.md
+const APP_VERSION = "1.0.0-beta.14";   // SemVer; see CHANGELOG.md
 /* Shown when you hover (or tap) the version next to the title. Keep it short; CHANGELOG.md has the detail. */
 const RELEASE_NOTES = [
-  "Phone menu: narrower, with market sessions first (one market per line), then feeds, lists, view and dark, Import/Export, Edit",
-  "Phone: Edit is an on/off button in the menu (blue while editing) and also turns editing off",
-  "Phone: the menu button shows three bars"
+  "Phone, editing: swipe a row left or right to remove it (with Undo); the \u00d7 buttons are gone",
+  "Phone, editing: a blue \u2713 button above the menu button leaves edit mode",
+  "Connection alerts redesigned: a clean card on desktop, full width on phones, with Retry on the right"
 ];
 (() => {
   const btn = document.getElementById("appVer"), box = document.getElementById("verNotes");
@@ -2062,7 +2082,7 @@ function paintFeedAlert() {
     if (!feedDown(ex)) continue;
     const label = EX[ex].label;
     const what = c.status === "blocked" ? `Can't reach ${label}` : c.everLive ? `${label} connection lost` : `Can't connect to ${label}`;
-    const since = c.lastMsg ? `frozen since ${shortTime.format(c.lastMsg)}` : "no prices yet";
+    const since = c.lastMsg ? `Prices frozen since ${shortTime.format(c.lastMsg)}` : "No prices yet";
     const secs = c.retryAt ? Math.max(0, Math.ceil((c.retryAt - Date.now()) / 1000)) : 0;
     const when = c.timer && secs > 1 ? `retry in ${secs}s` : "reconnecting…";
     rows.push({ ex, html: `<span class="fa-dot" aria-hidden="true"></span><b>${what}</b><span>${since} · ${when}</span><button class="fa-retry" type="button" data-ex="${ex}" aria-label="Retry ${label} now">Retry</button>` });
@@ -2787,8 +2807,21 @@ listView.addEventListener("contextmenu", e => { if (isEditing() && e.target.clos
 function rowMove(x, y) {
   const d = rowDrag; if (!d) return false;
   const dy = y - d.y;
-  if (!d.ready) {                                   // moved before the hold finished: it's a scroll
-    if (Math.hypot(x - d.x, dy) > 8) { clearTimeout(d.timer); rowDrag = null; }
+  const dx = x - d.x;
+  if (d.swipe) {                                    // phones, editing: swipe sideways to remove
+    d.dx = dx;
+    d.row.style.transform = `translateX(${dx}px)`;
+    d.row.classList.toggle("swipe-go", Math.abs(dx) > d.row.offsetWidth * .35);
+    return true;
+  }
+  if (!d.ready) {
+    // a clearly sideways move before the hold finishes: start a swipe (phones, list view)
+    if (d.touch && phoneMQ.matches && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      clearTimeout(d.timer); d.swipe = true; d.dx = dx;
+      d.row.classList.add("swiping"); d.row.style.transition = "none";
+      return true;
+    }
+    if (Math.hypot(dx, dy) > 8) { clearTimeout(d.timer); rowDrag = null; }   // otherwise it's a scroll
     return false;
   }
   if (!d.started) {
@@ -2835,6 +2868,16 @@ function endRowDrag(e) {
   rowDrag = null;
   clearTimeout(d.timer);
   d.row.classList.remove("lifting");
+  if (d.swipe) {
+    const r = d.row, go = Math.abs(d.dx || 0) > r.offsetWidth * .35;
+    rowJustDragged = true; setTimeout(() => { rowJustDragged = false; }, 0);
+    r.style.transition = `transform ${segMs(200)}ms ${SEG_EASE}, opacity ${segMs(200)}ms`;
+    if (!go) { r.style.transform = ""; r.classList.remove("swiping", "swipe-go"); setTimeout(() => { r.style.transition = ""; }, 220); return; }
+    r.style.transform = `translateX(${Math.sign(d.dx) * r.offsetWidth}px)`; r.style.opacity = "0";
+    const l = lists.find(x => x.id === r.dataset.list), i = l ? l.pairs.findIndex(p => keyOf(p) === r.dataset.key) : -1;
+    setTimeout(() => { if (i >= 0) removeAt(l.id, i); }, segMs(200));   // with Undo, as with ×
+    return;
+  }
   if (!d.started) return;
   document.body.classList.remove("dragging");
   rowJustDragged = true; setTimeout(() => { rowJustDragged = false; }, 0);
@@ -3687,11 +3730,11 @@ listView.addEventListener("keydown", openChartFrom);
   document.getElementById("doneBtn").onclick = () => setEditing(false);
   // Phones: the button floats (moved to <body>, out of the blurred bar, so position: fixed works),
   // and the market sessions move into the menu. Larger screens put everything back.
-  const navIn = document.querySelector(".gnav-in"), ss = document.getElementById("sessions");
+  const navIn = document.querySelector(".gnav-in"), ss = document.getElementById("sessions"), done = document.getElementById("doneBtn");
   const ssHome = document.createComment("sessions"); ss.before(ssHome);
   function place() {
-    if (phoneMQ.matches) { document.body.append(more, menu); menu.appendChild(ss); menu.setAttribute("role", "navigation"); menu.setAttribute("aria-label", "Menu"); }
-    else { navIn.append(more, menu); ssHome.after(ss); menu.removeAttribute("role"); menu.removeAttribute("aria-label"); }
+    if (phoneMQ.matches) { document.body.append(done, more, menu); menu.appendChild(ss); menu.setAttribute("role", "navigation"); menu.setAttribute("aria-label", "Menu"); }
+    else { navIn.append(done, more, menu); ssHome.after(ss); menu.removeAttribute("role"); menu.removeAttribute("aria-label"); }
     renderSessions(); scheduleFit();
   }
   place();
