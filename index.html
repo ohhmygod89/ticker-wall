@@ -1,10 +1,10 @@
 <!doctype html>
-<!-- Ticker Wall 1.0.0-beta.19 · versions and changelog: CHANGELOG.md -->
+<!-- Ticker Wall 1.0.0-beta.20 · versions and changelog: CHANGELOG.md -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="version" content="1.0.0-beta.19">
+<meta name="version" content="1.0.0-beta.20">
 <title>Ticker Wall</title>
 <script>try { var t = localStorage.getItem("ticker-wall.theme"); if (t === "dark" || t === "light") document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -223,7 +223,7 @@ body.editing .seg-add { display: inline-block; }
    there, taking no room, so the tiles don't move either (at most it overlaps their empty top edge). */
 .now { position: relative; }
 .timebar:has(> #sessions[data-mode="beside"]) .feed-alert {
-  position: absolute; top: 100%; left: 0; width: var(--alert-w, 100%); min-width: 0; margin-top: 8px; z-index: 6;
+  position: absolute; top: 100%; left: 0; width: max(var(--alert-w, 100%), 300px); min-width: 0; margin-top: 8px; z-index: 6;
 }
 /* a quiet card: red dot, what's wrong, when it retries, and Retry on the right */
 .fa-row {
@@ -311,6 +311,8 @@ body.editing .seg-add { display: inline-block; }
 .ed-head { display: flex; align-items: baseline; gap: 2px 12px; flex-wrap: wrap; min-width: 0; }
 .editor h2 { margin: 0; font-size: 14px; font-weight: 600; letter-spacing: -.015em; line-height: 1.47; }
 .editor .pk-field { height: 44px; }
+.editor { grid-template-columns: minmax(0, 1fr); }   /* narrow phones: shrink instead of running off the edge */
+.rp-rm { display: block; margin-top: 8px; padding: 8px 2px; color: var(--down); font-size: 15px; }
 .ed-foot { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: 2px 16px; }
 .editor .note { font-size: 12px; line-height: 1.4; }
 .form-msg { font-size: 13px; color: var(--muted); min-width: 0; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -469,7 +471,7 @@ body.dragging .row:not(.lifting) { pointer-events: none; }
 /* Icon controls in the top bar: Tiles/List and the dark-mode button (labels only in the phone menu) */
 .ico { display: block; fill: currentColor; }
 #viewSeg .seg-name { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding-inline: 12px; }
-.m-lbl, .ed-ico, .ph-only { display: none; }
+.m-lbl, .ed-ico, .ph-only, .lv-hint { display: none; }
 .icon-btn { display: inline-grid; place-items: center; grid-auto-flow: column; gap: 10px; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--fg); cursor: pointer; }
 .icon-btn:hover { background: var(--fill); }
 .icon-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -482,7 +484,8 @@ body.dragging .row:not(.lifting) { pointer-events: none; }
   .page { padding-bottom: calc(168px + env(safe-area-inset-bottom, 0px)); }   /* the last row scrolls clear of both floating buttons */
   html, body { overflow-x: clip; }   /* a row swiped right must not widen the page (iOS zooms out) */
   .lv-rows { overflow-x: clip; }
-  .ph-only { display: inline; }
+  .ph-only { display: inline; } .dt-only { display: none; }
+  .lv-hint { display: block; margin: -6px 0 -8px; font-size: 13px; color: var(--muted); }
   .timebar > .now { flex: 1 1 100%; min-width: 0; }
   /* feed alert: edge to edge, like the list rows below it */
   .feed-alert { width: auto; min-width: 0; margin-inline: calc(-1 * max(22px, env(safe-area-inset-left, 0px))) calc(-1 * max(22px, env(safe-area-inset-right, 0px))); }
@@ -513,7 +516,14 @@ body.dragging .row:not(.lifting) { pointer-events: none; }
   .done-btn[aria-pressed="true"] { background: var(--accent); color: #fff; box-shadow: 0 6px 20px rgba(0,0,0,.2); }
   .done-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   body:has(.nav-tools.open) .done-btn { display: none; }
+  body:has(.add-open) .done-btn, body:has(.add-open) .more-btn { display: none; }   /* not over the search/results */
+  .add-open { scroll-margin-top: 12px; }
   .nav-tools > #editBtn { display: none !important; }   /* the floating button does this on phones */
+  /* no top bar on phones: the name and version sit at the foot of the menu */
+  .gnav { display: none; }
+  .nav-tools > .brand { order: 7; display: flex; align-items: baseline; gap: 8px; margin: 2px 0 0; padding-top: 10px; border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent); font-size: 13px; font-weight: 600; color: var(--muted); position: relative; }
+  .nav-tools > .brand .ver { font-size: 13px; }
+  .nav-tools > .brand .ver-notes { left: 0; right: 0; top: auto; bottom: calc(100% + 8px); width: auto; }
   /* Adding a pair (phones, List view): a phantom row at the end of each list. Tap it and it becomes
      the search, with the results right underneath. Tiles view keeps the "Add a pair" box. */
   body.listmode .timebar > #editor { display: none !important; }
@@ -971,7 +981,7 @@ body.fit .track { height: max(4px, calc(var(--fp, 80px) * .05)); }
       </div>
       <div id="addPickerSlot"></div>
       <div class="ed-foot">
-        <p class="note">Prices pause while editing · click a pair's name to change it · drag to reorder<span class="ph-only"> · swipe a row sideways to remove it</span> · <button class="keys-link" type="button" id="keysLink">Shortcuts <kbd>?</kbd></button></p>
+        <p class="note">Prices pause while editing · <span class="dt-only">click a pair's name to change it · drag to reorder · <button class="keys-link" type="button" id="keysLink">Shortcuts <kbd>?</kbd></button></span><span class="ph-only">tap a pair's name to change or remove it · hold and drag to reorder</span></p>
         <div class="form-msg" id="formMsg" role="status"></div>
       </div>
     </section>
@@ -1145,12 +1155,12 @@ async function refreshBinanceList() {
 /* ======================================================================
    Exchanges + state
    ====================================================================== */
-const APP_VERSION = "1.0.0-beta.19";   // SemVer; see CHANGELOG.md
+const APP_VERSION = "1.0.0-beta.20";   // SemVer; see CHANGELOG.md
 /* Shown when you hover (or tap) the version next to the title. Keep it short; CHANGELOG.md has the detail. */
 const RELEASE_NOTES = [
-  "Smoother scrolling on phones: the page no longer holds up scrolling outside edit mode",
-  "The last row scrolls clear of the floating buttons",
-  "The add row says \u201cType a pair\u2026\u201d; the search hints \u201cType a pair, e.g. BTC or SOL\u201d"
+  "Phone: no top bar; the name and version are at the foot of the menu",
+  "Phone editing: buttons step aside while you type a pair, a hint explains the gestures, and tapping a name offers Remove",
+  "Import can be undone; the desktop outage alert no longer collapses over the sessions panel"
 ];
 (() => {
   const btn = document.getElementById("appVer"), box = document.getElementById("verNotes");
@@ -1593,6 +1603,8 @@ function buildList() {
   for (const k in rowsByKey) delete rowsByKey[k];
   listView.innerHTML = "";
   const editing = isEditing();
+  // phones, editing: what the gestures are (List view has no "Add a pair" box to carry this)
+  if (editing) listView.insertAdjacentHTML("beforeend", `<p class="lv-hint">Swipe a row to remove it · hold and drag to reorder · tap a name to change it</p>`);
   lists.forEach((l, li) => {
     const on = l.id === activeId;
     const sec = document.createElement("section");
@@ -2397,6 +2409,7 @@ function openAddRow(listId, el) {
   el.replaceWith(box);
   addRowPicker = { picker, box, listId };
   picker.focus();
+  box.scrollIntoView({ block: "start", behavior: "auto" });   // room underneath for the results
 }
 // a tap elsewhere puts the phantom back, unless something's been typed
 document.addEventListener("pointerdown", e => {
@@ -2416,6 +2429,11 @@ function openRowPicker(listId, i, row) {
     onCancel: close,
     onPick(p) { if (keyOf(p) === keyOf(old)) close(); else replacePair(l, i, p); }
   });
+  // a tap alternative to swiping (and reachable with VoiceOver / a keyboard)
+  const rm = document.createElement("button");
+  rm.type = "button"; rm.className = "link rp-rm"; rm.textContent = `Remove ${old.base}/${old.quote} from ${l.name}`;
+  rm.onclick = () => { tilePicker.destroy(); tilePicker = null; row.classList.remove("picking"); removeAt(listId, i); };
+  tilePicker.root.appendChild(rm);
   row.classList.add("picking");
   row.querySelector(".r-name").appendChild(tilePicker.root);
   tilePicker.focus(true);
@@ -3128,6 +3146,11 @@ function layoutSessions(ss) {
   // (widths are measured on the page; the strip may be zoomed on big screens, so divide back)
   if (besideWidth) { ss.style.flex = "none"; ss.style.maxWidth = "none"; ss.style.width = (besideWidth / uiScale) + "px"; }
   else { ss.style.flex = "1 1 100%"; ss.style.maxWidth = "none"; }
+  // Didn't actually fit beside the clock (e.g. the clock is drawn larger before any prices arrive)?
+  // Then it goes under the clock, and the alert stays in the normal flow instead of floating over it.
+  if (besideWidth && ss.getBoundingClientRect().top > document.querySelector(".now").getBoundingClientRect().top + 20) {
+    besideWidth = 0; ss.dataset.mode = "below"; ss.style.flex = "1 1 100%"; ss.style.width = "";
+  }
   // A feed alert floats under the clock and may use the free space up to the sessions panel.
   const nowEl = document.querySelector(".now");
   if (besideWidth) nowEl.style.setProperty("--alert-w", Math.max(0, (ss.getBoundingClientRect().left - nowEl.getBoundingClientRect().left - 16) / uiScale) + "px");
@@ -3461,11 +3484,16 @@ const dateFmt = new Intl.DateTimeFormat(undefined, { weekday: "long", day: "nume
 const $ = id => document.getElementById(id);
 let lastSessions = 0;
 
+let lastClockW = -1;
 function tick() {
   const now = new Date();
   const tzName = (tzFmt.formatToParts(now).find(p => p.type === "timeZoneName") || {}).value || "";
   $("clock").textContent = clockFmt.format(now);
   $("tz").textContent = tzName;
+  // The clock's width sets where the sessions panel and alert go. It grows when the first real time
+  // replaces "--:--" (and at 9:59 → 10:00), which no price update re-fits when a feed is down, so re-fit here.
+  const cw = $("clock").parentElement.offsetWidth;
+  if (cw !== lastClockW) { lastClockW = cw; scheduleFit(); }
   $("dateLine").textContent = dateFmt.format(now) + (zone ? " · " + zone : "");
 
   const start = utcDayStart(now.getTime());
@@ -3810,11 +3838,11 @@ listView.addEventListener("keydown", openChartFrom);
   document.getElementById("doneBtn").onclick = () => setEditing(!isEditing());
   // Phones: the button floats (moved to <body>, out of the blurred bar, so position: fixed works),
   // and the market sessions move into the menu. Larger screens put everything back.
-  const navIn = document.querySelector(".gnav-in"), ss = document.getElementById("sessions"), done = document.getElementById("doneBtn");
+  const navIn = document.querySelector(".gnav-in"), ss = document.getElementById("sessions"), done = document.getElementById("doneBtn"), brand = document.querySelector(".brand");
   const ssHome = document.createComment("sessions"); ss.before(ssHome);
   function place() {
-    if (phoneMQ.matches) { document.body.append(done, more, menu); menu.appendChild(ss); menu.setAttribute("role", "navigation"); menu.setAttribute("aria-label", "Menu"); }
-    else { navIn.append(done, more, menu); ssHome.after(ss); menu.removeAttribute("role"); menu.removeAttribute("aria-label"); }
+    if (phoneMQ.matches) { document.body.append(done, more, menu); menu.appendChild(ss); menu.appendChild(brand); menu.setAttribute("role", "navigation"); menu.setAttribute("aria-label", "Menu"); }
+    else { navIn.prepend(brand); navIn.append(done, more, menu); ssHome.after(ss); menu.removeAttribute("role"); menu.removeAttribute("aria-label"); }
     renderSessions(); scheduleFit();
   }
   place();
@@ -3890,6 +3918,8 @@ importFile.onchange = async () => {
   const v2 = s && s.app === "ticker-wall" && Array.isArray(s.lists) && s.lists.length > 0;
   if (!s || s.app !== "ticker-wall" || (!v2 && !Array.isArray(s.pairs))) { toast(`${file.name} isn't a Ticker Wall settings file.`, true); return; }
   const before = allPairs();
+  // what to put back if this was the wrong file
+  const snap = { lists: JSON.parse(JSON.stringify(lists)), active: activeId, theme: document.documentElement.dataset.theme || null };
   let given = 0, kept = 0, summary;
   if (v2) {
     const next = s.lists.slice(0, 20).map((l, i) => {
@@ -3905,20 +3935,27 @@ importFile.onchange = async () => {
     activeList().pairs = ps;
     summary = `${kept} pair${kept === 1 ? "" : "s"} into ${activeList().name}`;
   }
+  const skipped = given - kept;
+  listsReplaced(before, s.theme);
+  toast(`Imported ${summary}${skipped ? ` (skipped ${skipped} that weren't valid)` : ""}`, false, {
+    label: "Undo",
+    run() { const was = allPairs(); lists = snap.lists; activeId = snap.active; listsReplaced(was, snap.theme); toast("Import undone"); }
+  }, 10000);
+};
+/* After lists were swapped wholesale (Import, or undoing one): save, resubscribe, redraw, theme. */
+function listsReplaced(before, theme) {
   pairs = activeList().pairs; delArmed = null; save();
   before.forEach(p => unsubscribe(p.ex, sym(p)));
   for (const k in data) if (!inAnyList(k)) delete data[k];
   for (const k in hist) if (!inAnyList(k)) delete hist[k];
-  const skipped = given - kept;
   renderLists();
   buildWall();
   Object.keys(EX).forEach(ensure);
   paintFeeds();
-  if (s.theme === "dark" || s.theme === "light") { document.documentElement.dataset.theme = s.theme; try { localStorage.setItem("ticker-wall.theme", s.theme); } catch (e) {} }
+  if (theme === "dark" || theme === "light") { document.documentElement.dataset.theme = theme; try { localStorage.setItem("ticker-wall.theme", theme); } catch (e) {} }
   else { delete document.documentElement.dataset.theme; try { localStorage.removeItem("ticker-wall.theme"); } catch (e) {} }
   syncDarkSwitch();
-  toast(`Imported ${summary} from ${file.name}${skipped ? ` (skipped ${skipped} that weren't valid)` : ""}.`);
-};
+}
 
 /* ---------- start ---------- */
 syncDarkSwitch();
