@@ -1,10 +1,10 @@
 <!doctype html>
-<!-- Ticker Wall 1.0.0-beta.11 · versions and changelog: CHANGELOG.md -->
+<!-- Ticker Wall 1.0.0-beta.12 · versions and changelog: CHANGELOG.md -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="version" content="1.0.0-beta.11">
+<meta name="version" content="1.0.0-beta.12">
 <title>Ticker Wall</title>
 <script>try { var t = localStorage.getItem("ticker-wall.theme"); if (t === "dark" || t === "light") document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -412,21 +412,21 @@ body.dragging .row:not(.lifting) { pointer-events: none; }
   }
   /* TradingView-style rows: logo, pair over exchange, price over "change  %" in the day's colour */
   .row {
-    column-gap: 12px; row-gap: 2px; min-height: 64px; padding: 9px 0;
+    column-gap: 12px; row-gap: 1px; min-height: 56px; padding: 6px 0;
     grid-template-columns: 36px minmax(0, 1fr) auto auto;
     grid-template-areas: "logo name price price" "logo name abs pct";
   }
-  .row > .logo { --logo: 36px; align-self: center; }
-  .row + .row::before { left: 48px; }
+  .row > .logo { --logo: 34px; align-self: center; }
+  .row + .row::before { left: 46px; }
   .r-name { align-self: center; }
   canvas.r-spark { display: none; }
-  .r-pair { font-size: 19px; } .r-sub { font-size: 15px; }
-  .r-price { font-size: 19px; font-weight: 500; align-self: end; justify-self: end; }
-  .r-abs, .r-chg { font-size: 16px; font-weight: 400; align-self: start; }
+  .r-pair { font-size: 18px; } .r-sub { font-size: 14px; }
+  .r-price { font-size: 18px; font-weight: 500; align-self: end; justify-self: end; }
+  .r-abs, .r-chg { font-size: 15px; font-weight: 400; align-self: start; }
   .r-abs { display: block; justify-self: end; }
   .r-chg { justify-self: end; min-width: 0; height: auto; padding: 0; border-radius: 0; background: none !important; color: var(--muted); }
   .row[data-dir="up"] .r-chg { color: var(--up); } .row[data-dir="down"] .r-chg { color: var(--down); }
-  .row.frozen .r-chg, body.editing .row .r-chg { color: var(--muted) !important; background: none !important; }
+  .lv .row.frozen .r-chg, body.editing .lv .row .r-chg { color: var(--muted) !important; background: none !important; opacity: 1; }
   /* edit mode: the × sits at the end */
   body.editing .row { grid-template-columns: 36px minmax(0, 1fr) auto auto 32px; grid-template-areas: "logo name price price rm" "logo name abs pct rm"; }
   .row > .rm { width: 32px; height: 32px; align-self: center; }
@@ -472,43 +472,63 @@ body.dragging .row:not(.lifting) { pointer-events: none; }
 @media (max-width: 600px) {
   .gnav-in { position: relative; flex-wrap: nowrap; column-gap: 10px; min-height: 54px; }
   .gnav-in > .feeds { display: none; }
+  .page { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }   /* room to scroll the last row clear of the button */
+  /* Floating menu button, bottom right (thumb reach), as in the TradingView app. Moved to <body> by script. */
   .more-btn {
-    display: grid; place-items: center; position: relative; width: 52px; height: 36px; padding: 0; border: 0; border-radius: 18px;
-    background: var(--fill); color: var(--fg); cursor: pointer;
+    display: grid; place-items: center; position: fixed; z-index: 61;
+    right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    width: 56px; height: 56px; padding: 0; border: 0; border-radius: 50%;
+    background: var(--panel); color: var(--fg); cursor: pointer;
+    box-shadow: 0 6px 20px rgba(0,0,0,.16), 0 1px 3px rgba(0,0,0,.12), inset 0 0 0 1px color-mix(in srgb, var(--line) 70%, transparent);
   }
   .more-btn svg { fill: currentColor; }
-  .more-btn[aria-expanded="true"] { background: color-mix(in srgb, var(--fg) 16%, var(--fill)); }
-  .more-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .more-btn .x { display: none; }
+  .more-btn[aria-expanded="true"] .dots { display: none; } .more-btn[aria-expanded="true"] .x { display: block; }
+  .more-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   /* a feed with a problem: a dot on the button (the alert under the clock says more) */
-  .more-btn.warn::after { content: ""; position: absolute; top: 3px; right: 5px; width: 9px; height: 9px; border-radius: 50%; background: var(--warn); box-shadow: 0 0 0 2px var(--nav-solid, var(--bg)); }
+  .more-btn.warn::after { content: ""; position: absolute; top: 6px; right: 8px; width: 10px; height: 10px; border-radius: 50%; background: var(--warn); box-shadow: 0 0 0 2px var(--panel); }
   .more-btn.bad::after { background: var(--down); }
   body.editing .done-btn { display: inline-flex; align-items: center; height: 36px; padding: 0 16px; font-size: 15px; }
+  /* The menu: a card that rises from the button. Order: Edit, lists, view + dark, Import/Export, sessions, feeds. */
   .nav-tools {
-    display: none; position: absolute; top: calc(100% + 6px); right: max(12px, env(safe-area-inset-right, 0px)); z-index: 60;
-    width: min(340px, calc(100vw - 24px)); max-height: calc(100dvh - 80px); overflow: auto;
-    grid-template-columns: 1fr 1fr; gap: 14px 10px; align-items: center;
-    padding: 16px; border-radius: 20px; background: var(--panel); box-shadow: var(--pop-shadow);
-    font-size: 15px;
+    display: none; position: fixed; z-index: 60;
+    right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+    width: min(360px, calc(100vw - 24px)); max-height: calc(100dvh - 120px); overflow: auto; overscroll-behavior: contain;
+    grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; align-items: center;
+    padding: 12px 14px 14px; border-radius: 22px; background: var(--panel); box-shadow: var(--pop-shadow);
+    font-size: 15px; transform-origin: bottom right;
   }
-  .nav-tools.open { display: grid; }
-  .nav-tools > .menu-feeds, .nav-tools > #viewSeg, .nav-tools > #lists, .nav-tools > #darkBtn, .nav-tools > #editBtn { grid-column: 1 / -1; }
-  .nav-tools .m-lbl { display: inline; }
-  .nav-tools > .menu-feeds { display: flex; gap: 16px; color: var(--muted); font-size: 14px; }
-  .nav-tools > #viewSeg, .nav-tools > #lists { justify-self: stretch; display: flex; }
-  .nav-tools > #viewSeg .seg { flex: 1; } .nav-tools > #viewSeg .seg-name { width: 100%; justify-content: center; }
+  .nav-tools.open { display: grid; animation: sheetIn .18s cubic-bezier(.2, .8, .2, 1); }
+  @keyframes sheetIn { from { opacity: 0; transform: translateY(8px) scale(.97); } }
+  @media (prefers-reduced-motion: reduce) { .nav-tools.open { animation: none; } }
+  .nav-tools > * { grid-column: 1 / -1; }
+  .nav-tools > #editBtn { order: 1; width: 100%; justify-content: space-between; min-height: 44px; padding: 0 2px; font-size: 16px; color: var(--fg); }
+  .nav-tools > #lists { order: 2; }
+  .nav-tools > #viewSeg { order: 3; grid-column: 1 / 4; }
+  .nav-tools > #darkBtn { order: 3; grid-column: 4 / 5; }
+  .nav-tools > #importBtn { order: 4; grid-column: 1 / 3; }
+  .nav-tools > #exportBtn { order: 4; grid-column: 3 / 5; }
+  .nav-tools > .sessions { order: 5; }
+  .nav-tools > .menu-feeds { order: 6; }
+  /* segmented rows: equal parts, 40px tall */
+  .nav-tools > #viewSeg, .nav-tools > #lists { display: flex; justify-self: stretch; padding: 3px; }
+  .nav-tools > #viewSeg .seg, .nav-tools > #lists .seg { flex: 1 1 auto; min-width: 0; }
+  .nav-tools > #viewSeg .seg-name, .nav-tools > #lists .seg-name { width: 100%; height: 34px; justify-content: center; padding-inline: 10px; }
   .nav-tools > #lists { overflow-x: auto; scrollbar-width: none; flex-wrap: nowrap; }
   .nav-tools > #lists::-webkit-scrollbar { display: none; }
-  .nav-tools > #lists > * { flex: none; white-space: nowrap; }
-  .nav-tools > #importBtn, .nav-tools > #exportBtn { justify-content: center; height: 44px; border-radius: 12px; background: var(--fill); color: var(--accent-ink); font-size: 15px; text-decoration: none; }
-  .nav-tools > #editBtn { width: 100%; justify-content: space-between; min-height: 44px; font-size: 16px; color: var(--fg); border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent); padding-top: 14px; }
-  .nav-tools > #darkBtn { width: 100%; height: 44px; border-radius: 12px; background: var(--fill); justify-content: center; font-size: 15px; }
+  .nav-tools > #lists > .seg-add { flex: none; white-space: nowrap; }
+  .nav-tools > #darkBtn { width: 100%; height: 40px; border-radius: 12px; background: var(--fill); }
   .nav-tools > #darkBtn[aria-pressed="true"] { background: var(--seg-on); box-shadow: inset 0 0 0 1.5px var(--accent); }
+  .nav-tools > #importBtn, .nav-tools > #exportBtn { justify-content: center; height: 40px; border-radius: 12px; background: var(--fill); color: var(--accent-ink); font-size: 15px; text-decoration: none; }
+  /* sessions live in the menu on phones (moved by script): flat, under a hairline */
+  .nav-tools > .sessions { display: block !important; margin: 4px 0 0; padding: 12px 0 0; border-radius: 0; background: none; box-shadow: none; border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent); }
+  .nav-tools > .menu-feeds { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--muted); font-size: 13px; padding-top: 2px; }
 }
 
 /* Touch screens: small controls keep their look but get a 44px tap area (Apple's minimum) */
 @media (pointer: coarse), (max-width: 600px) {
-  .tool, .tv-x, .more-btn, .done-btn, .ver, .keys-link, .tv-iv .seg-name, .nav-tools .seg-name { position: relative; }
-  .tool::before, .tv-x::before, .more-btn::before, .done-btn::before, .ver::before, .keys-link::before, .tv-iv .seg-name::before, .nav-tools .seg-name::before {
+  .tool, .tv-x, .done-btn, .ver, .keys-link, .tv-iv .seg-name, .nav-tools .seg-name { position: relative; }
+  .tool::before, .tv-x::before, .done-btn::before, .ver::before, .keys-link::before, .tv-iv .seg-name::before, .nav-tools .seg-name::before {
     content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: max(100%, 44px); transform: translate(-50%, -50%);
   }
 }
@@ -862,7 +882,7 @@ body.fit .track { height: max(4px, calc(var(--fp, 80px) * .05)); }
     <div class="spacer"></div>
     <!-- phones: the controls live in a menu under ••• (as in the Stocks app); "Done" leaves edit mode -->
     <button class="pill done-btn" id="doneBtn" type="button">Done</button>
-    <button class="more-btn" id="moreBtn" type="button" aria-label="Menu" aria-expanded="false" aria-controls="navTools"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
+    <button class="more-btn" id="moreBtn" type="button" aria-label="Menu" aria-expanded="false" aria-controls="navTools"><svg class="dots" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg><svg class="x" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" fill="none"/></svg></button>
     <div class="nav-tools" id="navTools">
     <div class="feeds menu-feeds" id="menuFeeds" aria-hidden="true"></div>
     <div class="lists" id="lists" role="group" aria-label="Lists"></div>
@@ -1005,7 +1025,7 @@ const POPULAR = [
   ["TRX","TRON"],["ADA","Cardano"],["HYPE","Hyperliquid"],["LINK","Chainlink"],["SUI","Sui"],["XLM","Stellar"],
   ["AVAX","Avalanche"],["BCH","Bitcoin Cash"],["HBAR","Hedera"],["LTC","Litecoin"],["TON","Toncoin"],
   ["SHIB","Shiba Inu"],["DOT","Polkadot"],["XMR","Monero"],["UNI","Uniswap"],["AAVE","Aave"],["PEPE","Pepe"],
-  ["NEAR","NEAR Protocol"],["APT","Aptos"],["ICP","Internet Computer"],["ETC","Ethereum Classic"],["ONDO","Ondo"],
+  ["NEAR","NEAR Protocol"],["A","Vaulta"],["APT","Aptos"],["ICP","Internet Computer"],["ETC","Ethereum Classic"],["ONDO","Ondo"],
   ["POL","Polygon"],["TAO","Bittensor"],["ENA","Ethena"],["ATOM","Cosmos"],["ARB","Arbitrum"],["OP","Optimism"],
   ["FIL","Filecoin"],["RENDER","Render"],["INJ","Injective"],["KAS","Kaspa"],["ALGO","Algorand"],["VET","VeChain"],
   ["SEI","Sei"],["WLD","Worldcoin"],["TIA","Celestia"],["JUP","Jupiter"],["BONK","Bonk"],["WIF","dogwifhat"],
@@ -1077,12 +1097,12 @@ async function refreshBinanceList() {
 /* ======================================================================
    Exchanges + state
    ====================================================================== */
-const APP_VERSION = "1.0.0-beta.11";   // SemVer; see CHANGELOG.md
+const APP_VERSION = "1.0.0-beta.12";   // SemVer; see CHANGELOG.md
 /* Shown when you hover (or tap) the version next to the title. Keep it short; CHANGELOG.md has the detail. */
 const RELEASE_NOTES = [
-  "Phone list looks like TradingView: logo, pair and exchange, then price over the change and % in the day\u2019s colour",
-  "Phone market sessions are always the short version (no hours list)",
-  "Tiles/List and dark mode are icons; the top bar runs lists \u2192 view \u2192 dark/light \u2192 Import/Export \u2192 Edit \u2192 Full screen"
+  "Standard lists: Main and Extended (Kraken, USD) and a new Hyperliquid list (perps, USDC). Each browser switches to them once",
+  "Phone: the menu button floats at the bottom right, and the menu is compact: Edit first, icons for view and dark mode",
+  "Phone: market sessions moved into the menu, and list rows are slimmer, so more tickers fit"
 ];
 (() => {
   const btn = document.getElementById("appVer"), box = document.getElementById("verNotes");
@@ -1112,12 +1132,17 @@ function hlCoin(ex, s) { return ex === "hyperspot" ? HLSPOT[s] : s; }
 function hlBase(ex, coin) { return ex === "hyperspot" ? Object.keys(HLSPOT).find(b => HLSPOT[b] === coin) : coin; }
 /* "Kraken", "Binance", "Hyperliquid perp" */
 function venueName(ex) { return EX[ex].label + (EX[ex].note ? " " + EX[ex].note : ""); }
-const DEFAULT_PAIRS = [
-  { ex: "kraken", base: "BTC", quote: "USD" },
-  { ex: "kraken", base: "ETH", quote: "USD" },
-  { ex: "kraken", base: "SOL", quote: "USD" },
-  { ex: "kraken", base: "BTC", quote: "AUD" }
+/* Andy's standard lists (2026-11-09). "A" is Vaulta (formerly EOS). */
+const kr = b => ({ ex: "kraken", base: b, quote: "USD" });
+const hl = b => ({ ex: "hyperliquid", base: b, quote: "USDC" });
+const PRESET_LISTS = [
+  { id: "main", name: "Main", pairs: ["BTC", "ETH", "NEAR", "HYPE", "SOL", "A"].map(kr) },
+  { id: "extended", name: "Extended", pairs: ["BTC", "ETH", "NEAR", "HYPE", "SOL", "A", "SUI", "BNB", "ZEC", "UNI"].map(kr) },
+  { id: "hyperliquid", name: "Hyperliquid", pairs: ["BTC", "ETH", "NEAR", "HYPE", "SOL", "SUI"].map(hl) }
 ];
+const PRESET_VER = "2026-11-09";   // bump to push a new standard set to every browser once
+const PRESET_KEY = "ticker-wall.preset";
+const DEFAULT_PAIRS = PRESET_LISTS[0].pairs;
 const CUR = { USD: "$", USDT: "$", USDC: "$", FDUSD: "$", USD1: "$", AUD: "A$", EUR: "€", GBP: "£", JPY: "¥", CAD: "C$" };
 const STORE_KEY = "ticker-wall.pairs.v1";      // before lists: one array of pairs (read once, to migrate)
 const LISTS_KEY = "ticker-wall.lists.v1";      // { active: id, lists: [{ id, name, pairs: [...] }] }
@@ -1144,7 +1169,19 @@ function cleanPairs(arr) {
 }
 function cleanName(s, fallback) { return (typeof s === "string" ? s.trim().replace(/\s+/g, " ").slice(0, 24) : "") || fallback; }
 function newListId() { return "l" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function presetLists() { return PRESET_LISTS.map(l => ({ id: l.id, name: l.name, pairs: l.pairs.map(p => ({ ...p })) })); }
 function loadLists() {
+  // One-time switch to the standard lists on every browser (Andy asked to replace, not merge)
+  try {
+    if (localStorage.getItem(PRESET_KEY) !== PRESET_VER) {
+      let was = null; try { was = (JSON.parse(localStorage.getItem(LISTS_KEY) || "null") || {}).active; } catch (e) {}
+      lists = presetLists();
+      activeId = lists.some(l => l.id === was) ? was : "main";
+      localStorage.setItem(LISTS_KEY, JSON.stringify({ active: activeId, lists }));
+      localStorage.setItem(PRESET_KEY, PRESET_VER);
+      return;
+    }
+  } catch (e) {}
   try {
     const s = JSON.parse(localStorage.getItem(LISTS_KEY) || "null");
     if (s && Array.isArray(s.lists) && s.lists.length) {
@@ -1156,10 +1193,8 @@ function loadLists() {
   // First run with lists: your existing wall becomes "Main", plus an empty "Extended".
   let main = null;
   try { const arr = JSON.parse(localStorage.getItem(STORE_KEY) || "null"); if (Array.isArray(arr)) main = cleanPairs(arr); } catch (e) {}
-  lists = [
-    { id: "main", name: "Main", pairs: main || DEFAULT_PAIRS.map(p => ({ ...p })) },
-    { id: "extended", name: "Extended", pairs: [] }
-  ];
+  lists = presetLists();
+  if (main) lists[0].pairs = main;
   activeId = "main";
 }
 function activeList() { return lists.find(l => l.id === activeId) || lists[0]; }
@@ -3311,7 +3346,7 @@ function tick() {
   $("ssCaption").textContent = `Times in ${tzName} · public holidays not included`;
 
   if (now.getSeconds() % 30 === 0) redrawCharts();
-  if (Math.abs(now - lastSessions) >= 5000) { lastSessions = +now; if (!ssPanel.hidden) renderSessions(); }
+  if (Math.abs(now - lastSessions) >= 5000) { lastSessions = +now; if (!ssPanel.hidden || ssPanel.closest(".nav-tools")) renderSessions(); }
   else ssGrid.querySelectorAll(".ss-now, .ss-tnow").forEach(n => { n.style.left = ((now - start) / DAY * 100).toFixed(3) + "%"; });
 
   for (const k in tiles) {
@@ -3641,8 +3676,18 @@ listView.addEventListener("keydown", openChartFrom);
     if (e.target.closest("[data-view], #importBtn, #exportBtn, #editBtn")) setTimeout(() => open(false), 120);
     else if (e.target.closest("#lists .seg-name") && !isEditing()) setTimeout(() => open(false), 120);
   });
-  phoneMQ.addEventListener("change", () => open(false));
+  phoneMQ.addEventListener("change", () => { open(false); place(); });
   document.getElementById("doneBtn").onclick = () => setEditing(false);
+  // Phones: the button floats (moved to <body>, out of the blurred bar, so position: fixed works),
+  // and the market sessions move into the menu. Larger screens put everything back.
+  const navIn = document.querySelector(".gnav-in"), ss = document.getElementById("sessions");
+  const ssHome = document.createComment("sessions"); ss.before(ssHome);
+  function place() {
+    if (phoneMQ.matches) { document.body.append(more, menu); menu.appendChild(ss); menu.setAttribute("role", "navigation"); menu.setAttribute("aria-label", "Menu"); }
+    else { navIn.append(more, menu); ssHome.after(ss); menu.removeAttribute("role"); menu.removeAttribute("aria-label"); }
+    renderSessions(); scheduleFit();
+  }
+  place();
 })();
 
 
