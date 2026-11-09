@@ -1,10 +1,10 @@
 <!doctype html>
-<!-- Ticker Wall 1.0.0-beta.23 · versions and changelog: CHANGELOG.md -->
+<!-- Ticker Wall 1.0.0-beta.24 · versions and changelog: CHANGELOG.md -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="version" content="1.0.0-beta.23">
+<meta name="version" content="1.0.0-beta.24">
 <title>Ticker Wall</title>
 <script>try { var t = localStorage.getItem("ticker-wall.theme"); if (t === "dark" || t === "light") document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -339,7 +339,8 @@ body.listmode #wall { display: none; }
 .lv { display: grid; gap: 26px; align-content: start; width: 100%; }
 .lv-sec { display: grid; gap: 8px; min-width: 0; }
 .lv-h { margin: 0; padding: 0 4px; display: flex; align-items: baseline; gap: 10px; font-size: 15px; font-weight: 600; letter-spacing: -.015em; color: var(--muted); }
-.lv-h button { all: unset; cursor: pointer; border-radius: 6px; }
+.lv-h button { all: unset; cursor: pointer; border-radius: 6px; position: relative; }
+.lv-h button::before { content: ""; position: absolute; inset: -12px -8px; }   /* 44px tap area around the 21px name */
 .lv-h button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .lv-h .lv-tag { font-size: 12px; font-weight: 600; color: var(--accent-ink); }
 .lv-rows { background: var(--panel); border-radius: 18px; padding: 0 24px; min-width: 0; }
@@ -378,7 +379,8 @@ canvas.r-spark { grid-area: chart; width: 100%; height: 50px; display: block; }
 /* every other tick uses a twin animation: changing its name restarts it without forcing a re-layout */
 .row.tick-up.alt .num { animation-name: flashUp2; }
 .row.tick-down.alt .num { animation-name: flashDown2; }
-.row.nodata .num { color: var(--muted); opacity: .45; font-weight: 400; }
+.row.nodata .num { color: var(--muted); font-weight: 400; }
+.row.nodata .r-chg { color: var(--muted-ink); }   /* "Not available" on the grey fill: 5:1 */
 .row.nodata .r-chg:empty { visibility: hidden; }
 .row.frozen .num, .row.frozen .r-abs { color: var(--muted) !important; animation: none !important; }
 .row.frozen .num { opacity: .75; }
@@ -410,8 +412,8 @@ body.dragging .row:not(.lifting) { pointer-events: none; }
   .r-pair { font-size: 19px; } .r-price { font-size: 20px; } .r-abs { font-size: 17px; }
   .r-chg { min-width: 78px; height: 28px; font-size: 16px; }
 }
-/* Phones: the Stocks app. Rows run the full width of the screen; price sits over the badge;
-   the badge shows % or the price change (tap to switch). */
+/* Phones: TradingView-style rows running the full width of the screen: logo, pair over exchange,
+   the day's mini chart, then the price over the change and the % badge. */
 @media (max-width: 600px) {
   .lv { gap: 22px; }
   .lv-h { padding: 0; font-size: 14px; }
@@ -440,8 +442,7 @@ body.dragging .row:not(.lifting) { pointer-events: none; }
   /* % in a green/red box, as on the tiles; the price change beside it stays coloured text */
   .r-chg { justify-self: end; min-width: 0; height: 21px; padding: 0 6px; border-radius: 6px; font-size: 13px; font-weight: 600; margin-top: 1px; }
   .row[data-dir="up"] .r-abs { color: var(--up); } .row[data-dir="down"] .r-abs { color: var(--down); }
-  /* edit mode: the × sits at the end */
-  /* editing: no × (too easy to hit next to the menu button); swipe a row left or right to remove it */
+  /* editing: no × (too easy to hit next to the menu button); swipe a row sideways, or tap its name, to remove it */
   body.editing .row > .rm { display: none; }
   body.editing .row { grid-template-columns: 34px minmax(0, 1fr) 52px 66px 64px; grid-template-areas: "logo name chart price price" "logo name chart abs pct"; }
   .row.swiping { position: relative; z-index: 2; background: var(--panel); }
@@ -484,6 +485,8 @@ body.dragging .row:not(.lifting) { pointer-events: none; }
 #viewSeg .seg-name { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding-inline: 12px; }
 html { touch-action: manipulation; }   /* no double-tap zoom; scrolling and pinch-zoom unaffected */
 .m-lbl, .ed-ico, .ph-only, .lv-hint { display: none; }
+.ver, .keys-link { min-height: 24px; }   /* WCAG 2.5.8: at least 24px to tap or click */
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 .icon-btn { display: inline-grid; place-items: center; grid-auto-flow: column; gap: 10px; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--fg); cursor: pointer; }
 .icon-btn:hover { background: var(--fill); }
 .icon-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -849,6 +852,8 @@ body.editing .tile { -webkit-touch-callout: none; }
 /* price flash: hold the colour 0.5s, then fade back over 1s */
 .tile.tick-up .num { animation: flashUp 1.5s ease-out; }
 .tile.tick-down .num { animation: flashDown 1.5s ease-out; }
+.tile.tick-up.alt .num { animation-name: flashUp2; }
+.tile.tick-down.alt .num { animation-name: flashDown2; }
 @keyframes flashUp { 0%, 33.3% { color: var(--up); } 100% { color: var(--fg); } }
 @keyframes flashDown { 0%, 33.3% { color: var(--down); } 100% { color: var(--fg); } }
 @keyframes flashUp2 { 0%, 33.3% { color: var(--up); } 100% { color: var(--fg); } }
@@ -908,7 +913,7 @@ body.editing .tile { -webkit-touch-callout: none; }
 .tile.frozen .track .mark { background: var(--muted); }
 /* No price yet: a quiet dash instead of a big currency sign and bar */
 .tile.nodata .price .cur { visibility: hidden; }
-.tile.nodata .num { color: var(--muted); opacity: .45; font-weight: 400; }
+.tile.nodata .num { color: var(--muted); font-weight: 400; }   /* full muted grey: readable (5:1), still clearly "no price" */
 
 .empty { background: var(--panel); border-radius: 28px; padding: 64px 20px; text-align: center; color: var(--muted); display: grid; gap: 14px; justify-items: center; }
 .empty h2 { margin: 0; color: var(--fg); font-weight: 600; font-size: 32px; letter-spacing: -.025em; }
@@ -942,7 +947,7 @@ body.fit .track { height: max(4px, calc(var(--fp, 80px) * .05)); }
   .pk-ex { padding-top: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .tile.tick-up .num, .tile.tick-down .num { animation: none; }
+  .tile.tick-up .num, .tile.tick-down .num, .tile.alt .num { animation: none; }
   .track .mark { transition: none; }
 }
 </style>
@@ -951,7 +956,7 @@ body.fit .track { height: max(4px, calc(var(--fp, 80px) * .05)); }
 
 <nav class="gnav">
   <div class="gnav-in">
-    <h1 class="brand">Ticker Wall <button class="ver" id="appVer" type="button" aria-expanded="false" aria-controls="verNotes"></button><span class="ver-notes" id="verNotes" role="tooltip"></span></h1>
+    <div class="brand">Ticker Wall <button class="ver" id="appVer" type="button" aria-expanded="false" aria-controls="verNotes"></button><span class="ver-notes" id="verNotes" role="tooltip"></span></div>
     <div class="feeds" id="feeds"></div>
     <div class="spacer"></div>
     <!-- phones: the controls live in a menu under ••• (as in the Stocks app); "Done" leaves edit mode -->
@@ -975,6 +980,7 @@ body.fit .track { height: max(4px, calc(var(--fp, 80px) * .05)); }
 
 <div class="page">
   <section class="timebar" aria-label="Time">
+    <h1 class="sr-only">Ticker Wall</h1>
     <div class="now">
       <div class="eyebrow" id="dateLine">&nbsp;</div>
       <div class="clock-line"><span class="clock" id="clock">--:--</span><span class="tz" id="tz"></span></div>
@@ -1171,12 +1177,12 @@ async function refreshBinanceList() {
 /* ======================================================================
    Exchanges + state
    ====================================================================== */
-const APP_VERSION = "1.0.0-beta.23";   // SemVer; see CHANGELOG.md
+const APP_VERSION = "1.0.0-beta.24";   // SemVer; see CHANGELOG.md
 /* Shown when you hover (or tap) the version next to the title. Keep it short; CHANGELOG.md has the detail. */
 const RELEASE_NOTES = [
-  "Phone list: the % sits in a green/red box like the tiles, with smaller TradingView-size type so everything fits",
-  "Tiles: day low, high and open are labelled DL, DH and O",
-  "Double-tapping no longer zooms the page (pinch-zoom still works)"
+  "Accessibility: list edit mode reads correctly with VoiceOver, every page has a heading, and names start with what you see",
+  "Empty rows\u2019 dashes and \u201cNot available\u201d are readable, and small links are big enough to tap",
+  "Tiles no longer re-lay out the page on every price tick"
 ];
 (() => {
   const btn = document.getElementById("appVer"), box = document.getElementById("verNotes");
@@ -1635,9 +1641,10 @@ function buildList() {
     const hb = sec.querySelector(".lv-h button");
     if (hb) hb.onclick = () => switchList(l.id);
     const box = sec.querySelector(".lv-rows");
-    if (!l.pairs.length) box.innerHTML = `<div class="lv-empty">No pairs yet${editing ? "" : " · add some in Edit mode"}</div>`;
+    if (!l.pairs.length) box.innerHTML = `<div class="lv-empty" role="listitem">No pairs yet${editing ? "" : " · add some in Edit mode"}</div>`;
     l.pairs.forEach((p, i) => box.appendChild(makeRow(l, p, i)));
-    if (editing) box.appendChild(makeAddRow(l));
+    // (a list may only hold list items, so the add row gets its own item wrapper)
+    if (editing) { const li = document.createElement("div"); li.setAttribute("role", "listitem"); li.className = "add-item"; li.appendChild(makeAddRow(l)); box.appendChild(li); }
     listView.appendChild(sec);
   });
   fillLogos(listView);
@@ -1658,7 +1665,9 @@ function makeRow(l, p, i) {
   r.tabIndex = 0;   // Enter opens the chart; in edit mode, arrows reorder
   r.setAttribute("aria-haspopup", "dialog");
   if (editing) {
-    name.tabIndex = 0; name.setAttribute("role", "button"); name.setAttribute("aria-label", `${name.textContent.replace(/\s+/g, " ").trim()}, change pair`);
+    // named by what it shows (pair, exchange or error), then a hidden ", change pair"
+    name.tabIndex = 0; name.setAttribute("role", "button"); name.removeAttribute("aria-label");
+    if (!name.querySelector(".sr-only")) name.insertAdjacentHTML("beforeend", `<span class="sr-only">, change pair</span>`);
   }
   name.addEventListener("click", () => { if (isEditing() && !rowJustDragged) openRowPicker(l.id, i, r); });
   name.addEventListener("keydown", e => {
@@ -1812,9 +1821,9 @@ function paint(k, prev) {
   } else if (lenChange < 0) scheduleIdleFit();
 
   if (prev && prev.last != null && prev.last !== d.last) {
-    el.classList.remove("tick-up", "tick-down");
-    void el.offsetWidth;
-    el.classList.add(d.last > prev.last ? "tick-up" : "tick-down");
+    // restart the flash by switching to its twin animation, not by forcing a re-layout every tick
+    const f = d.last > prev.last ? "tick-up" : "tick-down";
+    el.classList.remove(f === "tick-up" ? "tick-down" : "tick-up"); el.classList.add(f); el.classList.toggle("alt");
   }
 }
 
@@ -1947,48 +1956,8 @@ function rgba(c, a) {
   const m = v.match(/[\d.]+/g) || [0, 0, 0]; return `rgba(${m[0]},${m[1]},${m[2]},${a})`;
 }
 /* List rows draw the day exactly like the tiles (drawSpark): coloured line, neutral fill, dotted open,
-   quarter-day marks and the latest-price dot. The old row style is kept below, unused. */
+   quarter-day marks and the latest-price dot. */
 function drawRowSpark(cv, k) { drawSpark(cv, k); }
-function drawRowSparkOld(cv, k) {
-  cv.dataset.drawn = "1";
-  const dpr = window.devicePixelRatio || 1;
-  const W = Math.round(cv.clientWidth * dpr), H = Math.round(cv.clientHeight * dpr);
-  if (!W || !H) return;
-  if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
-  const ctx = cv.getContext("2d");
-  ctx.clearRect(0, 0, W, H);
-  const pts = seriesFor(k), d = data[k] || {};
-  if (pts.length < 2) return;
-  const t0 = histFor(k).day, t1 = t0 + DAY;
-  const open = d.open != null && d.dayStart === t0 ? d.open : pts[0][1];
-  let lo = open, hi = open;
-  pts.forEach(p => { if (p[1] < lo) lo = p[1]; if (p[1] > hi) hi = p[1]; });
-  if (hi === lo) { hi += Math.abs(hi) * 0.001 || 1; lo -= Math.abs(lo) * 0.001 || 1; }
-  const up = cssVar("--up"), down = cssVar("--down"), muted = cssVar("--muted");
-  const pad = 2 * dpr, lw = 1.6 * dpr;
-  const X = t => (t - t0) / (t1 - t0) * W;
-  const Y = v => pad + (hi - v) / (hi - lo) * (H - 2 * pad);
-  const yOpen = Y(open);
-  const line = new Path2D();
-  pts.forEach((p, i) => { const x = X(p[0]), y = Y(p[1]); i ? line.lineTo(x, y) : line.moveTo(x, y); });
-  // the area between the line and the day's open
-  const area = new Path2D(line);
-  area.lineTo(X(pts[pts.length - 1][0]), yOpen); area.lineTo(X(pts[0][0]), yOpen); area.closePath();
-  // above the open: green; below: red (as on the tiles), each with a soft fill fading toward the open
-  [[0, yOpen, up, 0, yOpen], [yOpen, H, down, H, yOpen]].forEach(([top, bottom, col, g0, g1]) => {
-    if (bottom - top < .5) return;
-    ctx.save();
-    ctx.beginPath(); ctx.rect(0, top, W, bottom - top); ctx.clip();
-    const g = ctx.createLinearGradient(0, g0, 0, g1);
-    g.addColorStop(0, rgba(col, .30)); g.addColorStop(1, rgba(col, .04));
-    ctx.fillStyle = g; ctx.fill(area);
-    ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.lineJoin = "round"; ctx.stroke(line);
-    ctx.restore();
-  });
-  // dashed line at the day's open
-  ctx.save(); ctx.globalAlpha = .6; ctx.strokeStyle = muted; ctx.lineWidth = 1 * dpr; ctx.setLineDash([3 * dpr, 3 * dpr]);
-  ctx.beginPath(); ctx.moveTo(0, Math.round(yOpen) + .5); ctx.lineTo(W, Math.round(yOpen) + .5); ctx.stroke(); ctx.restore();
-}
 function drawSpark(cv, k) {
   cv.dataset.drawn = "1";
   const dpr = window.devicePixelRatio || 1;
@@ -2395,7 +2364,7 @@ function makeAddRow(l) {
   const b = document.createElement("button");
   b.type = "button"; b.className = "add-row"; b.dataset.list = l.id;
   b.innerHTML = `<span class="ar-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" fill="none"/></svg></span><span class="ar-t">Type a pair…</span>`;
-  b.setAttribute("aria-label", `Add a pair to ${l.name}`);
+  b.setAttribute("aria-label", `Type a pair…, add to ${l.name}`);
   b.onclick = () => openAddRow(l.id, b);
   return b;
 }
@@ -3025,9 +2994,13 @@ function scheduleIdleFit() {
 }
 /* Put "Open 77,334" under its tick, slid sideways if needed so it never touches "Day low" or "Day high";
    drop the word "Open" when the gap is tight, and the label altogether when even the price won't fit. */
-function placeOpen(el) {
+function placeOpen(el, force) {
   const tick = el.querySelector(".otick"), lbl = el.querySelector(".olbl");
-  if (!tick || tick.hidden) { if (lbl) lbl.hidden = true; return; }
+  if (!tick || tick.hidden) { if (lbl) lbl.hidden = true; el._openSig = ""; return; }
+  // measuring forces a layout, so only when something it depends on changed (not on every tick)
+  const sig = [el._openAt, lbl.textContent, el.querySelector(".lo").textContent, el.querySelector(".hi").textContent, wall.classList.contains("compact")].join("|");
+  if (!force && sig === el._openSig) return;
+  el._openSig = sig;
   const row = lbl.parentElement, [lo, , hi] = row.children;
   const W = row.clientWidth;
   if (!W) return;
@@ -3054,7 +3027,7 @@ function fitWall() {
   if (asList && phoneMQ.matches) { redrawCharts(); return; }
   const y = window.scrollY;
   if (asList) { document.body.classList.remove("listmode"); listView.hidden = true; }
-  try { fitWallTiles(); Object.values(tiles).forEach(placeOpen); }
+  try { fitWallTiles(); Object.values(tiles).forEach(el => placeOpen(el, true)); }
   finally {
     if (asList) { document.body.classList.add("listmode"); document.body.classList.remove("fit"); listView.hidden = false; }
   }
