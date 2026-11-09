@@ -1,10 +1,10 @@
 <!doctype html>
-<!-- Ticker Wall 1.0.0-beta.24 · versions and changelog: CHANGELOG.md -->
+<!-- Ticker Wall 1.0.0-beta.25 · versions and changelog: CHANGELOG.md -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="version" content="1.0.0-beta.24">
+<meta name="version" content="1.0.0-beta.25">
 <title>Ticker Wall</title>
 <script>try { var t = localStorage.getItem("ticker-wall.theme"); if (t === "dark" || t === "light") document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -424,27 +424,29 @@ body.dragging .row:not(.lifting) { pointer-events: none; }
   /* TradingView-style rows: logo, pair over exchange, price over "change  %" in the day's colour */
   .row {
     /* fixed columns after the name, so every row's chart lines up */
-    column-gap: 8px; row-gap: 1px; min-height: 56px; padding: 6px 0;
-    grid-template-columns: 34px minmax(0, 1fr) 52px 66px 64px;
+    column-gap: 7px; row-gap: 1px; min-height: 56px; padding: 6px 0;
+    grid-template-columns: 34px minmax(0, 1fr) 50px 76px 64px;
     grid-template-areas: "logo name chart price price" "logo name chart abs pct";
   }
-  .row > .logo { --logo: 34px; align-self: center; margin-right: 4px; }
+  .row > .logo { --logo: 34px; align-self: center; margin-right: 2px; }
   .row + .row::before { left: 46px; }
   .r-name { align-self: center; }
-  canvas.r-spark { grid-row: 1 / span 2; width: 52px; height: 34px; align-self: center; }   /* the day so far, drawn as on the tiles */
+  canvas.r-spark { grid-row: 1 / span 2; width: 50px; height: 34px; align-self: center; }   /* the day so far, drawn as on the tiles */
   /* type sized like the TradingView app's watchlist, so the chart and both changes fit */
   .r-pair { font-size: 16px; } .r-sub { font-size: 13px; }
   .r-pair .sl { margin-inline: -.08em; }
   .r-price { font-size: 16.5px; font-weight: 500; align-self: end; justify-self: end; }
-  .r-abs, .r-chg { font-size: 13.5px; font-weight: 400; align-self: start; }
+  /* the change and the % badge share one 21px line, centred on each other */
+  .r-abs, .r-chg { font-size: 13.5px; font-weight: 400; align-self: start; height: 21px; line-height: 21px; }
   .r-abs { display: block; justify-self: end; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 
   /* % in a green/red box, as on the tiles; the price change beside it stays coloured text */
-  .r-chg { justify-self: end; min-width: 0; height: 21px; padding: 0 6px; border-radius: 6px; font-size: 13px; font-weight: 600; margin-top: 1px; }
+  .r-chg { justify-self: end; min-width: 0; padding: 0 6px; border-radius: 6px; font-size: 13px; font-weight: 600; margin-top: 2px; }
+  .r-abs { margin-top: 2px; }
   .row[data-dir="up"] .r-abs { color: var(--up); } .row[data-dir="down"] .r-abs { color: var(--down); }
   /* editing: no × (too easy to hit next to the menu button); swipe a row sideways, or tap its name, to remove it */
   body.editing .row > .rm { display: none; }
-  body.editing .row { grid-template-columns: 34px minmax(0, 1fr) 52px 66px 64px; grid-template-areas: "logo name chart price price" "logo name chart abs pct"; }
+  body.editing .row { grid-template-columns: 34px minmax(0, 1fr) 50px 76px 64px; grid-template-areas: "logo name chart price price" "logo name chart abs pct"; }
   .row.swiping { position: relative; z-index: 2; background: var(--panel); }
   body.editing .row { touch-action: pan-y; }   /* the browser scrolls up/down at once; sideways is ours (swipe) */
   .row.swipe-go { opacity: .5; }
@@ -1177,11 +1179,11 @@ async function refreshBinanceList() {
 /* ======================================================================
    Exchanges + state
    ====================================================================== */
-const APP_VERSION = "1.0.0-beta.24";   // SemVer; see CHANGELOG.md
+const APP_VERSION = "1.0.0-beta.25";   // SemVer; see CHANGELOG.md
 /* Shown when you hover (or tap) the version next to the title. Keep it short; CHANGELOG.md has the detail. */
 const RELEASE_NOTES = [
-  "Accessibility: list edit mode reads correctly with VoiceOver, every page has a heading, and names start with what you see",
-  "Empty rows\u2019 dashes and \u201cNot available\u201d are readable, and small links are big enough to tap",
+  "Phone list: the price change lines up with the % badge again, and large changes like +1,008.36 fit",
+  "Accessibility: list edit mode reads correctly with VoiceOver; empty-row dashes are readable",
   "Tiles no longer re-lay out the page on every price tick"
 ];
 (() => {
