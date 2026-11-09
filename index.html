@@ -1,10 +1,10 @@
 <!doctype html>
-<!-- Ticker Wall 1.0.0-beta.20 · versions and changelog: CHANGELOG.md -->
+<!-- Ticker Wall 1.0.0-beta.21 · versions and changelog: CHANGELOG.md -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="version" content="1.0.0-beta.20">
+<meta name="version" content="1.0.0-beta.21">
 <title>Ticker Wall</title>
 <script>try { var t = localStorage.getItem("ticker-wall.theme"); if (t === "dark" || t === "light") document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -375,6 +375,9 @@ canvas.r-spark { grid-area: chart; width: 100%; height: 50px; display: block; }
 .row[data-dir="down"] .r-chg { background: var(--down); color: var(--on-badge); }
 .row.tick-up .num { animation: flashUp 1.5s ease-out; }
 .row.tick-down .num { animation: flashDown 1.5s ease-out; }
+/* every other tick uses a twin animation: changing its name restarts it without forcing a re-layout */
+.row.tick-up.alt .num { animation-name: flashUp2; }
+.row.tick-down.alt .num { animation-name: flashDown2; }
 .row.nodata .num { color: var(--muted); opacity: .45; font-weight: 400; }
 .row.nodata .r-chg:empty { visibility: hidden; }
 .row.frozen .num, .row.frozen .r-abs { color: var(--muted) !important; animation: none !important; }
@@ -397,7 +400,7 @@ body.editing .r-name:hover .r-pair { color: var(--accent); }
 .row.lifting { z-index: 5; box-shadow: 0 10px 28px rgba(0, 0, 0, .18); border-radius: 14px; }
 .row.lifting::before { display: none; }
 body.dragging .row:not(.lifting) { pointer-events: none; }
-@media (prefers-reduced-motion: reduce) { .row.tick-up .num, .row.tick-down .num { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .row.tick-up .num, .row.tick-down .num, .row.alt .num { animation: none; } }
 /* Narrower desktops: a smaller chart and type */
 @media (min-width: 601px) and (max-width: 1100px) {
   .row { column-gap: 14px; grid-template-columns: 32px minmax(130px, 220px) minmax(100px, 1fr) minmax(7rem, auto) minmax(6rem, auto) 84px; }
@@ -482,7 +485,8 @@ body.dragging .row:not(.lifting) { pointer-events: none; }
   .gnav-in { position: relative; flex-wrap: nowrap; column-gap: 10px; min-height: 54px; }
   .gnav-in > .feeds { display: none; }
   .page { padding-bottom: calc(168px + env(safe-area-inset-bottom, 0px)); }   /* the last row scrolls clear of both floating buttons */
-  html, body { overflow-x: clip; }   /* a row swiped right must not widen the page (iOS zooms out) */
+  /* A row swiped right must not widen the page (iOS would zoom out). Clipped on the list itself:
+     overflow set on html/body upsets iOS Safari's scrolling (it stutters and jumps back). */
   .lv-rows { overflow-x: clip; }
   .ph-only { display: inline; } .dt-only { display: none; }
   .lv-hint { display: block; margin: -6px 0 -8px; font-size: 13px; color: var(--muted); }
@@ -837,6 +841,8 @@ body.editing .tile { -webkit-touch-callout: none; }
 .tile.tick-down .num { animation: flashDown 1.5s ease-out; }
 @keyframes flashUp { 0%, 33.3% { color: var(--up); } 100% { color: var(--fg); } }
 @keyframes flashDown { 0%, 33.3% { color: var(--down); } 100% { color: var(--fg); } }
+@keyframes flashUp2 { 0%, 33.3% { color: var(--up); } 100% { color: var(--fg); } }
+@keyframes flashDown2 { 0%, 33.3% { color: var(--down); } 100% { color: var(--fg); } }
 
 .change {
   display: flex; align-items: center; gap: .45em; flex-wrap: wrap;
@@ -1155,12 +1161,12 @@ async function refreshBinanceList() {
 /* ======================================================================
    Exchanges + state
    ====================================================================== */
-const APP_VERSION = "1.0.0-beta.20";   // SemVer; see CHANGELOG.md
+const APP_VERSION = "1.0.0-beta.21";   // SemVer; see CHANGELOG.md
 /* Shown when you hover (or tap) the version next to the title. Keep it short; CHANGELOG.md has the detail. */
 const RELEASE_NOTES = [
-  "Phone: no top bar; the name and version are at the foot of the menu",
-  "Phone editing: buttons step aside while you type a pair, a hint explains the gestures, and tapping a name offers Remove",
-  "Import can be undone; the desktop outage alert no longer collapses over the sessions panel"
+  "Phone: scrolling no longer jumps back a little before carrying on",
+  "Price flashes no longer force the page to re-lay itself out on every tick",
+  "Phone: no top bar (name and version are in the menu); tapping a name offers Remove; Import can be undone"
 ];
 (() => {
   const btn = document.getElementById("appVer"), box = document.getElementById("verNotes");
@@ -1698,7 +1704,8 @@ function paintRows(k, prev) {
     r.querySelector(".r-chg").innerHTML = chg;
     r.querySelector(".r-abs").innerHTML = absTxt;
     r.dataset.dir = dir;
-    if (flash) { r.classList.remove("tick-up", "tick-down"); void r.offsetWidth; r.classList.add(flash); }
+    // (no forced re-layout per tick: that ran several times a second and made phone scrolling stutter)
+    if (flash) { r.classList.remove(flash === "tick-up" ? "tick-down" : "tick-up"); r.classList.add(flash); r.classList.toggle("alt"); }
   });
 }
 
@@ -3027,11 +3034,17 @@ function fitWall() {
   // List view: lay the page out as Tiles for a moment (no paint happens in between), so the clock and
   // sessions panel come out identical in both views; then put the list back and let the page scroll.
   const asList = listMode;
+  // Phones: the header doesn't depend on the tiles (sessions are in the menu, nothing is fitted below
+  // 720px), and Safari resizes the page whenever its toolbar slides in or out while you scroll. Swapping
+  // the list out then made the page shorter for an instant, which clamped the scroll back a little.
+  if (asList && phoneMQ.matches) { redrawCharts(); return; }
+  const y = window.scrollY;
   if (asList) { document.body.classList.remove("listmode"); listView.hidden = true; }
   try { fitWallTiles(); Object.values(tiles).forEach(placeOpen); }
   finally {
     if (asList) { document.body.classList.add("listmode"); document.body.classList.remove("fit"); listView.hidden = false; }
   }
+  if (asList && window.scrollY !== y) window.scrollTo(0, y);   // keep the reading position (desktop list)
   redrawCharts();
 }
 function fitWallTiles() {
