@@ -1,10 +1,10 @@
 <!doctype html>
-<!-- Ticker Wall 1.0.0-beta.16 · versions and changelog: CHANGELOG.md -->
+<!-- Ticker Wall 1.0.0-beta.17 · versions and changelog: CHANGELOG.md -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="version" content="1.0.0-beta.16">
+<meta name="version" content="1.0.0-beta.17">
 <title>Ticker Wall</title>
 <script>try { var t = localStorage.getItem("ticker-wall.theme"); if (t === "dark" || t === "light") document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -524,11 +524,15 @@ body.dragging .row:not(.lifting) { pointer-events: none; }
     box-shadow: 0 6px 20px rgba(0,0,0,.16), 0 1px 3px rgba(0,0,0,.12), inset 0 0 0 1px color-mix(in srgb, var(--line) 70%, transparent);
   }
   .add-fab:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-  body:has(.nav-tools.open) .add-fab, body:has(.add-sheet:not([hidden])) .add-fab { display: none; }
+  body:has(.nav-tools.open) .add-fab { display: none; }
+  .add-fab svg { transition: transform .18s ease; }
+  body.editing .add-fab[aria-expanded="true"] { background: var(--accent); color: #fff; }
+  .add-fab[aria-expanded="true"] svg { transform: rotate(45deg); }   /* + turns into × */
+  @media (prefers-reduced-motion: reduce) { .add-fab svg { transition: none; } }
   .add-sheet:not([hidden]) {
     display: grid; gap: 12px; position: fixed; z-index: 70;
     top: calc(env(safe-area-inset-top, 0px) + 10px); left: max(10px, env(safe-area-inset-left, 0px)); right: max(10px, env(safe-area-inset-right, 0px));
-    max-height: calc(100dvh - 20px - env(safe-area-inset-top, 0px)); overflow: auto; overscroll-behavior: contain;
+    max-height: 50dvh; overflow: auto; overscroll-behavior: contain;   /* half the screen: the +/× below stays clear */
     padding: 14px 14px 12px; border-radius: 22px; background: var(--panel); box-shadow: var(--pop-shadow);
     animation: asIn .18s cubic-bezier(.2, .8, .2, 1);
   }
@@ -1170,12 +1174,12 @@ async function refreshBinanceList() {
 /* ======================================================================
    Exchanges + state
    ====================================================================== */
-const APP_VERSION = "1.0.0-beta.16";   // SemVer; see CHANGELOG.md
+const APP_VERSION = "1.0.0-beta.17";   // SemVer; see CHANGELOG.md
 /* Shown when you hover (or tap) the version next to the title. Keep it short; CHANGELOG.md has the detail. */
 const RELEASE_NOTES = [
-  "Phone, editing: a + button above the pencil opens Add to\u2026 with your lists as tabs, then the coin search",
-  "Phone: the Add a pair box is gone from the page (desktop keeps it)",
-  "Phone: Edit is a permanent floating pencil button, blue while editing; swiping a row right no longer zooms the page"
+  "Phone: tapping + puts the cursor straight into the search, so the keyboard comes up",
+  "Phone: the Add to panel is half the screen tall, and the + (now \u00d7) stays visible to close it",
+  "Phone, editing: a + button above the pencil opens Add to\u2026 with your lists as tabs"
 ];
 (() => {
   const btn = document.getElementById("appVer"), box = document.getElementById("verNotes");
@@ -2368,14 +2372,14 @@ const addSheet = (() => {
   function open() {
     paintTabs(); say(""); slot.appendChild(addPicker.root); sheet.hidden = false;
     fab.setAttribute("aria-expanded", "true");
-    setTimeout(() => addPicker.focus(), 30);
+    addPicker.focus();   // right away, inside the tap, so iOS opens the keyboard (a delayed focus doesn't)
   }
   function close() {
     if (sheet.hidden) return;
     sheet.hidden = true; fab.setAttribute("aria-expanded", "false");
     addPicker.reset(); home.appendChild(addPicker.root);
   }
-  fab.onclick = open;
+  fab.onclick = () => (sheet.hidden ? open() : close());   // the + also closes it (shown as ×)
   document.getElementById("asClose").onclick = close;
   document.addEventListener("keydown", e => { if (e.key === "Escape" && !sheet.hidden) { close(); fab.focus(); } });
   document.addEventListener("pointerdown", e => { if (!sheet.hidden && !e.target.closest("#addSheet, #addFab")) close(); });
