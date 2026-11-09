@@ -1,10 +1,10 @@
 <!doctype html>
-<!-- Ticker Wall 1.0.0-beta.12 · versions and changelog: CHANGELOG.md -->
+<!-- Ticker Wall 1.0.0-beta.13 · versions and changelog: CHANGELOG.md -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="version" content="1.0.0-beta.12">
+<meta name="version" content="1.0.0-beta.13">
 <title>Ticker Wall</title>
 <script>try { var t = localStorage.getItem("ticker-wall.theme"); if (t === "dark" || t === "light") document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -433,8 +433,7 @@ body.dragging .row:not(.lifting) { pointer-events: none; }
   .row.picking .picker { right: 42px; }
 }
 @media (max-width: 374px) {   /* small phones: the three markets share the width evenly, times may wrap */
-  .ss-grid .ss-q3 { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-  .ss-q .ss-q-t { white-space: normal; }
+
 }
 @media (max-width: 360px) {
   .row { column-gap: 10px; grid-template-columns: 30px minmax(0, 1fr) auto auto; }
@@ -462,7 +461,7 @@ body.dragging .row:not(.lifting) { pointer-events: none; }
 /* Icon controls in the top bar: Tiles/List and the dark-mode button (labels only in the phone menu) */
 .ico { display: block; fill: currentColor; }
 #viewSeg .seg-name { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding-inline: 12px; }
-.m-lbl { display: none; }
+.m-lbl, .ed-ico { display: none; }
 .icon-btn { display: inline-grid; place-items: center; grid-auto-flow: column; gap: 10px; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--fg); cursor: pointer; }
 .icon-btn:hover { background: var(--fill); }
 .icon-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -488,12 +487,11 @@ body.dragging .row:not(.lifting) { pointer-events: none; }
   /* a feed with a problem: a dot on the button (the alert under the clock says more) */
   .more-btn.warn::after { content: ""; position: absolute; top: 6px; right: 8px; width: 10px; height: 10px; border-radius: 50%; background: var(--warn); box-shadow: 0 0 0 2px var(--panel); }
   .more-btn.bad::after { background: var(--down); }
-  body.editing .done-btn { display: inline-flex; align-items: center; height: 36px; padding: 0 16px; font-size: 15px; }
   /* The menu: a card that rises from the button. Order: Edit, lists, view + dark, Import/Export, sessions, feeds. */
   .nav-tools {
     display: none; position: fixed; z-index: 60;
     right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(84px + env(safe-area-inset-bottom, 0px));
-    width: min(360px, calc(100vw - 24px)); max-height: calc(100dvh - 120px); overflow: auto; overscroll-behavior: contain;
+    width: min(272px, calc(100vw - 24px)); max-height: calc(100dvh - 120px); overflow: auto; overscroll-behavior: contain;
     grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; align-items: center;
     padding: 12px 14px 14px; border-radius: 22px; background: var(--panel); box-shadow: var(--pop-shadow);
     font-size: 15px; transform-origin: bottom right;
@@ -502,14 +500,20 @@ body.dragging .row:not(.lifting) { pointer-events: none; }
   @keyframes sheetIn { from { opacity: 0; transform: translateY(8px) scale(.97); } }
   @media (prefers-reduced-motion: reduce) { .nav-tools.open { animation: none; } }
   .nav-tools > * { grid-column: 1 / -1; }
-  .nav-tools > #editBtn { order: 1; width: 100%; justify-content: space-between; min-height: 44px; padding: 0 2px; font-size: 16px; color: var(--fg); }
-  .nav-tools > #lists { order: 2; }
-  .nav-tools > #viewSeg { order: 3; grid-column: 1 / 4; }
-  .nav-tools > #darkBtn { order: 3; grid-column: 4 / 5; }
-  .nav-tools > #importBtn { order: 4; grid-column: 1 / 3; }
-  .nav-tools > #exportBtn { order: 4; grid-column: 3 / 5; }
-  .nav-tools > .sessions { order: 5; }
-  .nav-tools > .menu-feeds { order: 6; }
+  /* top to bottom: sessions, feed status, lists, view + dark, Import/Export, Edit (closest to the thumb) */
+  .nav-tools > .sessions { order: 1; }
+  .nav-tools > .menu-feeds { order: 2; }
+  .nav-tools > #lists { order: 3; }
+  .nav-tools > #viewSeg { order: 4; grid-column: 1 / 4; }
+  .nav-tools > #darkBtn { order: 4; grid-column: 4 / 5; }
+  .nav-tools > #importBtn { order: 5; grid-column: 1 / 3; }
+  .nav-tools > #exportBtn { order: 5; grid-column: 3 / 5; }
+  .nav-tools > #editBtn { order: 6; }
+  /* Edit: an on/off button (blue while editing), the same button turns it off */
+  .nav-tools > #editBtn { width: 100%; height: 44px; justify-content: center; gap: 8px; padding: 0; border-radius: 12px; background: var(--fill); font-size: 16px; font-weight: 600; color: var(--fg); }
+  .nav-tools > #editBtn .sw-track { display: none; }
+  .nav-tools > #editBtn[aria-checked="true"] { background: var(--accent); color: #fff; }
+  .nav-tools > #editBtn .ed-ico { display: block; }
   /* segmented rows: equal parts, 40px tall */
   .nav-tools > #viewSeg, .nav-tools > #lists { display: flex; justify-self: stretch; padding: 3px; }
   .nav-tools > #viewSeg .seg, .nav-tools > #lists .seg { flex: 1 1 auto; min-width: 0; }
@@ -517,12 +521,16 @@ body.dragging .row:not(.lifting) { pointer-events: none; }
   .nav-tools > #lists { overflow-x: auto; scrollbar-width: none; flex-wrap: nowrap; }
   .nav-tools > #lists::-webkit-scrollbar { display: none; }
   .nav-tools > #lists > .seg-add { flex: none; white-space: nowrap; }
+  /* editing adds × and "+ New list" to the lists: natural widths, swipe sideways if they don't fit */
+  body.editing .nav-tools > #lists .seg { flex: none; }
+  body.editing .nav-tools > #lists .seg-name { width: auto; }
   .nav-tools > #darkBtn { width: 100%; height: 40px; border-radius: 12px; background: var(--fill); }
   .nav-tools > #darkBtn[aria-pressed="true"] { background: var(--seg-on); box-shadow: inset 0 0 0 1.5px var(--accent); }
   .nav-tools > #importBtn, .nav-tools > #exportBtn { justify-content: center; height: 40px; border-radius: 12px; background: var(--fill); color: var(--accent-ink); font-size: 15px; text-decoration: none; }
   /* sessions live in the menu on phones (moved by script): flat, under a hairline */
-  .nav-tools > .sessions { display: block !important; margin: 4px 0 0; padding: 12px 0 0; border-radius: 0; background: none; box-shadow: none; border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent); }
-  .nav-tools > .menu-feeds { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--muted); font-size: 13px; padding-top: 2px; }
+  .nav-tools > .sessions { display: block !important; margin: 0; padding: 2px 0 0; border-radius: 0; background: none; box-shadow: none; }
+  .nav-tools > .sessions .ss-head { margin-bottom: 8px; }
+  .nav-tools > .menu-feeds { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--muted); font-size: 13px; padding: 10px 0 2px; border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent); }
 }
 
 /* Touch screens: small controls keep their look but get a 44px tap area (Apple's minimum) */
@@ -542,11 +550,11 @@ body.dragging .row:not(.lifting) { pointer-events: none; }
   .ss-cbar i { display: block; height: 100%; border-radius: 2px; background: var(--accent); }
   /* Collapsed (the default on phones): one line per market's state, three across, so prices start higher */
   .sessions.collapsed .caption { display: none; }
-  .ss-q3 { display: grid; grid-template-columns: repeat(3, auto); justify-content: space-between; gap: 12px; }
-  .ss-q { display: grid; gap: 2px; min-width: 0; align-content: start; }
+  .ss-q3 { display: grid; gap: 8px; }
+  .ss-q { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
   .ss-q-n { display: flex; align-items: center; gap: 6px; height: 22px; font-size: 14px; font-weight: 600; white-space: nowrap; }
   .ss-q-n .flag { display: flex; }
-  .ss-q .ss-status { font-size: 13px; white-space: nowrap; }
+  .ss-q .ss-status { font-size: 13.5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
   .ss-q-t { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
   .sessions.collapsed .ss-cday { padding-top: 10px; }
@@ -882,7 +890,7 @@ body.fit .track { height: max(4px, calc(var(--fp, 80px) * .05)); }
     <div class="spacer"></div>
     <!-- phones: the controls live in a menu under ••• (as in the Stocks app); "Done" leaves edit mode -->
     <button class="pill done-btn" id="doneBtn" type="button">Done</button>
-    <button class="more-btn" id="moreBtn" type="button" aria-label="Menu" aria-expanded="false" aria-controls="navTools"><svg class="dots" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg><svg class="x" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" fill="none"/></svg></button>
+    <button class="more-btn" id="moreBtn" type="button" aria-label="Menu" aria-expanded="false" aria-controls="navTools"><svg class="dots" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><rect x="4" y="6" width="16" height="2.2" rx="1.1"/><rect x="4" y="10.9" width="16" height="2.2" rx="1.1"/><rect x="4" y="15.8" width="16" height="2.2" rx="1.1"/></svg><svg class="x" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" fill="none"/></svg></button>
     <div class="nav-tools" id="navTools">
     <div class="feeds menu-feeds" id="menuFeeds" aria-hidden="true"></div>
     <div class="lists" id="lists" role="group" aria-label="Lists"></div>
@@ -893,7 +901,7 @@ body.fit .track { height: max(4px, calc(var(--fp, 80px) * .05)); }
     <button class="link" id="importBtn" type="button" title="Load pairs and settings from an exported file">Import</button>
     <button class="link" id="exportBtn" type="button" title="Save your pairs and settings to a file">Export</button>
     <input type="file" id="importFile" accept=".json,application/json" hidden>
-    <button class="switch" id="editBtn" type="button" role="switch" aria-label="Edit mode" aria-checked="false" aria-controls="editor"><span class="sw-label">Edit</span><span class="sw-track" aria-hidden="true"><span class="sw-knob"></span></span></button>
+    <button class="switch" id="editBtn" type="button" role="switch" aria-label="Edit mode" aria-checked="false" aria-controls="editor"><svg class="ico ed-ico" viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M13.6 3.2a1.9 1.9 0 0 1 2.7 2.7l-8.9 8.9-3.6.9.9-3.6 8.9-8.9Z"/></svg><span class="sw-label">Edit</span><span class="sw-track" aria-hidden="true"><span class="sw-knob"></span></span></button>
     <button class="pill" id="fsBtn" type="button" aria-label="Full screen"><svg class="fs-ico" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="fs-txt">Full screen</span></button>
     </div>
   </div>
@@ -1097,12 +1105,12 @@ async function refreshBinanceList() {
 /* ======================================================================
    Exchanges + state
    ====================================================================== */
-const APP_VERSION = "1.0.0-beta.12";   // SemVer; see CHANGELOG.md
+const APP_VERSION = "1.0.0-beta.13";   // SemVer; see CHANGELOG.md
 /* Shown when you hover (or tap) the version next to the title. Keep it short; CHANGELOG.md has the detail. */
 const RELEASE_NOTES = [
-  "Standard lists: Main and Extended (Kraken, USD) and a new Hyperliquid list (perps, USDC). Each browser switches to them once",
-  "Phone: the menu button floats at the bottom right, and the menu is compact: Edit first, icons for view and dark mode",
-  "Phone: market sessions moved into the menu, and list rows are slimmer, so more tickers fit"
+  "Phone menu: narrower, with market sessions first (one market per line), then feeds, lists, view and dark, Import/Export, Edit",
+  "Phone: Edit is an on/off button in the menu (blue while editing) and also turns editing off",
+  "Phone: the menu button shows three bars"
 ];
 (() => {
   const btn = document.getElementById("appVer"), box = document.getElementById("verNotes");
@@ -3214,12 +3222,11 @@ function renderSessionsCompact(now, D) {
   const quick = `<div class="ss-q3">` + MARKETS.map(mk => {
     const st = marketState(mk, now);
     const t = ((st.text.replace(/<[^>]+>/g, "").match(/in (.+)$/) || [])[1] || "").trim();   // "7h 14m"
-    // two short lines under the name: the state, then how long until it changes
-    const [word, when] = st.s === "open" ? ["<b>Open</b>", t && `closes in ${t}`]
-      : st.s === "lunch" ? ["<b>Lunch</b>", t && `back in ${t}`]
-      : st.s === "soon" ? ["<b>Opens soon</b>", t && `in ${t}`]
-      : [/Weekend/.test(st.text) ? "Weekend" : "Closed", t && `opens in ${t}`];
-    return `<div class="ss-q" data-s="${st.s}"><b class="ss-q-n"><span class="flag" aria-hidden="true">${FLAGS[mk.flag]}</span>${mk.name}</b><div class="ss-status" data-s="${st.s}"><span class="dot"></span>${word}</div><span class="ss-q-t">${when || ""}</span></div>`;
+    // one line per market: flag and name, then the dot (green = open) and what happens next
+    const when = st.s === "open" ? (t ? `Closes in ${t}` : "Open")
+      : st.s === "lunch" ? (t ? `Lunch · back in ${t}` : "Lunch")
+      : t ? `Opens in ${t}` : "Closed";
+    return `<div class="ss-q" data-s="${st.s}"><b class="ss-q-n"><span class="flag" aria-hidden="true">${FLAGS[mk.flag]}</span>${mk.name}</b><div class="ss-status" data-s="${st.s}"><span class="dot"></span>${when}</div></div>`;
   }).join("") + `</div>`;
   const html = quick + day;
   ssPanel.classList.add("collapsed");
