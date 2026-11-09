@@ -1,10 +1,10 @@
 <!doctype html>
-<!-- Ticker Wall 1.0.0-beta.22 · versions and changelog: CHANGELOG.md -->
+<!-- Ticker Wall 1.0.0-beta.23 · versions and changelog: CHANGELOG.md -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="version" content="1.0.0-beta.22">
+<meta name="version" content="1.0.0-beta.23">
 <title>Ticker Wall</title>
 <script>try { var t = localStorage.getItem("ticker-wall.theme"); if (t === "dark" || t === "light") document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -423,26 +423,27 @@ body.dragging .row:not(.lifting) { pointer-events: none; }
   .row {
     /* fixed columns after the name, so every row's chart lines up */
     column-gap: 8px; row-gap: 1px; min-height: 56px; padding: 6px 0;
-    grid-template-columns: 34px minmax(0, 1fr) 52px 76px 62px;
+    grid-template-columns: 34px minmax(0, 1fr) 52px 66px 64px;
     grid-template-areas: "logo name chart price price" "logo name chart abs pct";
   }
   .row > .logo { --logo: 34px; align-self: center; margin-right: 4px; }
   .row + .row::before { left: 46px; }
   .r-name { align-self: center; }
   canvas.r-spark { grid-row: 1 / span 2; width: 52px; height: 34px; align-self: center; }   /* the day so far, drawn as on the tiles */
-  .r-pair { font-size: 17px; } .r-sub { font-size: 14px; }
+  /* type sized like the TradingView app's watchlist, so the chart and both changes fit */
+  .r-pair { font-size: 16px; } .r-sub { font-size: 13px; }
   .r-pair .sl { margin-inline: -.08em; }
-  .r-price { font-size: 18px; font-weight: 500; align-self: end; justify-self: end; }
-  .r-abs, .r-chg { font-size: 15px; font-weight: 400; align-self: start; }
+  .r-price { font-size: 16.5px; font-weight: 500; align-self: end; justify-self: end; }
+  .r-abs, .r-chg { font-size: 13.5px; font-weight: 400; align-self: start; }
   .r-abs { display: block; justify-self: end; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
-  .r-chg { max-width: 100%; overflow: hidden; }
-  .r-chg { justify-self: end; min-width: 0; height: auto; padding: 0; border-radius: 0; background: none !important; color: var(--muted); }
-  .row[data-dir="up"] .r-chg { color: var(--up); } .row[data-dir="down"] .r-chg { color: var(--down); }
-  .lv .row.frozen .r-chg, body.editing .lv .row .r-chg { color: var(--muted) !important; background: none !important; opacity: 1; }
+
+  /* % in a green/red box, as on the tiles; the price change beside it stays coloured text */
+  .r-chg { justify-self: end; min-width: 0; height: 21px; padding: 0 6px; border-radius: 6px; font-size: 13px; font-weight: 600; margin-top: 1px; }
+  .row[data-dir="up"] .r-abs { color: var(--up); } .row[data-dir="down"] .r-abs { color: var(--down); }
   /* edit mode: the × sits at the end */
   /* editing: no × (too easy to hit next to the menu button); swipe a row left or right to remove it */
   body.editing .row > .rm { display: none; }
-  body.editing .row { grid-template-columns: 34px minmax(0, 1fr) 52px 76px 62px; grid-template-areas: "logo name chart price price" "logo name chart abs pct"; }
+  body.editing .row { grid-template-columns: 34px minmax(0, 1fr) 52px 66px 64px; grid-template-areas: "logo name chart price price" "logo name chart abs pct"; }
   .row.swiping { position: relative; z-index: 2; background: var(--panel); }
   body.editing .row { touch-action: pan-y; }   /* the browser scrolls up/down at once; sideways is ours (swipe) */
   .row.swipe-go { opacity: .5; }
@@ -481,6 +482,7 @@ body.dragging .row:not(.lifting) { pointer-events: none; }
 /* Icon controls in the top bar: Tiles/List and the dark-mode button (labels only in the phone menu) */
 .ico { display: block; fill: currentColor; }
 #viewSeg .seg-name { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding-inline: 12px; }
+html { touch-action: manipulation; }   /* no double-tap zoom; scrolling and pinch-zoom unaffected */
 .m-lbl, .ed-ico, .ph-only, .lv-hint { display: none; }
 .icon-btn { display: inline-grid; place-items: center; grid-auto-flow: column; gap: 10px; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--fg); cursor: pointer; }
 .icon-btn:hover { background: var(--fill); }
@@ -1067,7 +1069,7 @@ body.fit .track { height: max(4px, calc(var(--fp, 80px) * .05)); }
     </div>
     <div class="range">
       <div class="track"><div class="otick" hidden></div><div class="mark" hidden></div></div>
-      <div class="range-lbl small"><span><span class="rl"><span class="rp">Day </span>low</span> <b class="lo">—</b></span><span class="olbl" hidden><span class="ow">Open </span><b class="op">—</b></span><span><span class="rl"><span class="rp">Day </span>high</span> <b class="hi">—</b></span></div>
+      <div class="range-lbl small"><span title="Day low"><span class="rl"><span class="rp">D</span>L</span> <b class="lo">—</b></span><span class="olbl" hidden><span class="ow">O </span><b class="op">—</b></span><span title="Day high"><span class="rl"><span class="rp">D</span>H</span> <b class="hi">—</b></span></div>
     </div>
     <div class="foot small"><span class="sub24"></span><span class="state"></span><span class="ago"><span class="venue2"></span><span class="agw">Updated </span><span class="agt"></span></span></div>
   </div>
@@ -1169,12 +1171,12 @@ async function refreshBinanceList() {
 /* ======================================================================
    Exchanges + state
    ====================================================================== */
-const APP_VERSION = "1.0.0-beta.22";   // SemVer; see CHANGELOG.md
+const APP_VERSION = "1.0.0-beta.23";   // SemVer; see CHANGELOG.md
 /* Shown when you hover (or tap) the version next to the title. Keep it short; CHANGELOG.md has the detail. */
 const RELEASE_NOTES = [
-  "Phone list rows have their mini chart back, drawn exactly like the tiles\u2019 charts, and lined up row to row",
-  "List view on desktop uses the tile chart style too",
-  "Phone menu: dark mode moved left, Tiles/List right (closer to the thumb)"
+  "Phone list: the % sits in a green/red box like the tiles, with smaller TradingView-size type so everything fits",
+  "Tiles: day low, high and open are labelled DL, DH and O",
+  "Double-tapping no longer zooms the page (pinch-zoom still works)"
 ];
 (() => {
   const btn = document.getElementById("appVer"), box = document.getElementById("verNotes");
@@ -1778,7 +1780,8 @@ function paint(k, prev) {
   lbl.hidden = haveDay; lbl.textContent = "24h";
 
   const hi = haveDay ? d.high : d.high24, lo = haveDay ? d.low : d.low24;
-  el.querySelectorAll(".range-lbl .rp").forEach(x => { x.textContent = haveDay ? "Day " : "24h "; });
+  // DL / DH (day low, high); 24h L / 24h H while today's open isn't known yet
+  el.querySelectorAll(".range-lbl .rp").forEach(x => { x.textContent = haveDay ? "D" : "24h "; });
   el.querySelector(".lo").innerHTML = zfmt(fmt(lo, d.last));
   el.querySelector(".hi").innerHTML = zfmt(fmt(hi, d.last));
   const mark = el.querySelector(".mark");
