@@ -1,10 +1,10 @@
 <!doctype html>
-<!-- Ticker Wall 1.0.0-beta.25 · versions and changelog: CHANGELOG.md -->
+<!-- Ticker Wall 1.0.0-beta.26 · versions and changelog: CHANGELOG.md -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="version" content="1.0.0-beta.25">
+<meta name="version" content="1.0.0-beta.26">
 <title>Ticker Wall</title>
 <script>try { var t = localStorage.getItem("ticker-wall.theme"); if (t === "dark" || t === "light") document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1097,9 +1097,33 @@ function parseList(s) {
 }
 /* Hyperliquid perps: a starter list, replaced at startup by the live list (refreshHyperliquidList). */
 const HL_LIST = "BTC,ETH,SOL,HYPE,XRP,DOGE,BNB,SUI,AVAX,LINK,ADA,LTC,TRX,TON,NEAR,APT,ARB,OP,ENA,AAVE,UNI,WLD,TIA,SEI,INJ,TAO,ZEC,BCH,DOT,ATOM,FIL,ETC,XLM,HBAR,ICP,RENDER,FET,ONDO,JUP,LDO,CRV,PENDLE,WIF,POPCAT,PENGU,TRUMP,VIRTUAL,FARTCOIN,PUMP,XPL,ASTER,kPEPE,kBONK,kSHIB,kFLOKI,PAXG";
-const LISTS = { kraken: parseList(KRAKEN_LIST), binance: parseList(BINANCE_LIST), hyperliquid: Object.fromEntries(HL_LIST.split(",").map(c => [c, ["USDC"]])), hyperspot: { HYPE: ["USDC"], PURR: ["USDC"] } };
-/* Hyperliquid spot markets have their own ids ("@107" is HYPE/USDC). Refreshed from spotMeta at startup. */
-let HLSPOT = { HYPE: "@107", PURR: "PURR/USDC" }, hlSpotReady = false;
+const LISTS = { kraken: parseList(KRAKEN_LIST), binance: parseList(BINANCE_LIST), hyperliquid: Object.fromEntries(HL_LIST.split(",").map(c => [c, ["USDC"]])) };
+/* Forex. Kraken lists a few majors as live spot markets (AUD/USD, AUD/JPY, EUR/USD ...). Anything else
+   comes from Twelve Data, which is polled every few minutes. Every pair of these currencies is offered;
+   one Twelve Data doesn't carry says so on its tile. */
+const CURRENCY_NAMES = { AUD: "Australian Dollar", USD: "US Dollar", EUR: "Euro", GBP: "British Pound", JPY: "Japanese Yen", NZD: "New Zealand Dollar",
+  CAD: "Canadian Dollar", CHF: "Swiss Franc", SGD: "Singapore Dollar", THB: "Thai Baht", VND: "Vietnamese Dong", CNY: "Chinese Yuan",
+  HKD: "Hong Kong Dollar", KRW: "South Korean Won", INR: "Indian Rupee", IDR: "Indonesian Rupiah", MYR: "Malaysian Ringgit", PHP: "Philippine Peso" };
+const FX_CODES = Object.keys(CURRENCY_NAMES);
+LISTS.twelvedata = Object.fromEntries(FX_CODES.map(a => [a, FX_CODES.filter(b => b !== a)]));
+/* Kraken has AUD/USD but not USD/AUD, so USD/AUD is that market turned upside down (1 / price). */
+const KRAKEN_INV = { "USD/AUD": "AUD/USD" };
+(LISTS.kraken.USD ||= []).includes("AUD") || LISTS.kraken.USD.push("AUD");
+const krWire = s => KRAKEN_INV[s] || s;                                          // the market Kraken actually has
+const krMirror = s => Object.keys(KRAKEN_INV).find(a => KRAKEN_INV[a] === s) || null;   // the flipped twin of a market, if any
+/* a Kraken price update for AUD/USD, restated as USD/AUD */
+function invPatch(v) {
+  const o = {}, f = x => (x > 0 && isFinite(x)) ? 1 / x : null, put = (key, x) => { if (x != null) o[key] = x; };
+  put("last", f(v.last)); put("open", f(v.open));
+  put("low", f(v.high)); put("high", f(v.low));            // the highest AUD/USD is the lowest USD/AUD
+  put("low24", f(v.high24)); put("high24", f(v.low24));
+  if (v.dayStart != null) o.dayStart = v.dayStart;
+  if (v.last > 0 && v.ch24 != null && isFinite(v.ch24)) {
+    const prev = v.last - v.ch24;
+    if (prev > 0) { o.ch24 = 1 / v.last - 1 / prev; o.pct24 = (prev / v.last - 1) * 100; }
+  }
+  return o;
+}
 
 /* Popular coins, in rough market-cap order, with names for search. */
 const POPULAR = [
@@ -1129,6 +1153,7 @@ const POPULAR = [
 ];
 const NAMES = Object.fromEntries(POPULAR);
 const POP_RANK = Object.fromEntries(POPULAR.map(([s], i) => [s, i]));
+Object.assign(NAMES, CURRENCY_NAMES);
 const QUOTE_ORDER = ["USD","USDT","USDC","EUR","AUD","GBP","CAD","JPY","CHF","BTC","ETH","FDUSD","USD1","DAI"];
 function quoteRank(q) { const i = QUOTE_ORDER.indexOf(q); return i < 0 ? 100 : i; }
 function quotesFor(ex, base) { return (LISTS[ex][base] || []).slice().sort((a, b) => quoteRank(a) - quoteRank(b) || a.localeCompare(b)); }
@@ -1143,26 +1168,6 @@ async function refreshHyperliquidList() {
     if (Object.keys(m).length > 20) LISTS.hyperliquid = m;
   } catch (e) {}
 }
-async function refreshHyperspotList() {
-  try {
-    const r = await fetch(HL_INFO, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "spotMeta" }) });
-    if (r.ok) {
-      const j = await r.json();
-      const tok = {};
-      for (const t of (j && j.tokens) || []) if (t && typeof t.name === "string") tok[t.index] = t.name;
-      const ids = {};
-      for (const u of (j && j.universe) || []) {
-        if (!u || !Array.isArray(u.tokens) || u.tokens[1] !== 0 || typeof u.name !== "string") continue;   // USDC-quoted only
-        const b = tok[u.tokens[0]];
-        if (b && /^[A-Za-z0-9]{1,20}$/.test(b) && /^(@\d+|[A-Za-z0-9]+\/USDC)$/.test(u.name) && !ids[b]) ids[b] = u.name;
-      }
-      if (ids.HYPE) { HLSPOT = ids; LISTS.hyperspot = Object.fromEntries(Object.keys(ids).map(b => [b, ["USDC"]])); }
-    }
-  } catch (e) {}
-  hlSpotReady = true;
-  subscribe("hyperspot", symsFor("hyperspot"));   // pairs that were waiting for their market id
-}
-
 async function refreshBinanceList() {
   for (const host of ["https://data-api.binance.vision", "https://api.binance.com"]) {
     try {
@@ -1179,12 +1184,12 @@ async function refreshBinanceList() {
 /* ======================================================================
    Exchanges + state
    ====================================================================== */
-const APP_VERSION = "1.0.0-beta.25";   // SemVer; see CHANGELOG.md
+const APP_VERSION = "1.0.0-beta.26";   // SemVer; see CHANGELOG.md
 /* Shown when you hover (or tap) the version next to the title. Keep it short; CHANGELOG.md has the detail. */
 const RELEASE_NOTES = [
-  "Phone list: the price change lines up with the % badge again, and large changes like +1,008.36 fit",
-  "Accessibility: list edit mode reads correctly with VoiceOver; empty-row dashes are readable",
-  "Tiles no longer re-lay out the page on every price tick"
+  "New Forex list: USD/AUD and AUD/JPY live from Kraken; AUD/THB, AUD/SGD, AUD/VND from Twelve Data",
+  "Twelve Data added as a price source: delayed, refreshed about every 10 minutes",
+  "Hyperliquid spot removed (perps stay)"
 ];
 (() => {
   const btn = document.getElementById("appVer"), box = document.getElementById("verNotes");
@@ -1203,24 +1208,24 @@ const EX = {
   binance: { label: "Binance", urls: ["wss://stream.binance.com:9443/ws", "wss://data-stream.binance.vision/ws"] },
   // Hyperliquid perpetuals (USDC-settled). Coin names are Hyperliquid's own, e.g. HYPE, BTC, kPEPE.
   hyperliquid: { label: "Hyperliquid", urls: ["wss://api.hyperliquid.xyz/ws"], note: "perp" },
-  // Hyperliquid spot (USDC-quoted), e.g. HYPE/USDC. Same feed, its own connection.
-  hyperspot: { label: "Hyperliquid", urls: ["wss://api.hyperliquid.xyz/ws"], note: "spot" }
+  // Forex from Twelve Data: asked for every few minutes over HTTPS (poll: true), not streamed.
+  twelvedata: { label: "Twelve Data", urls: [], note: "delayed", poll: true }
 };
 const HL_INFO = "https://api.hyperliquid.xyz/info";
-const EX_ORDER = ["kraken", "binance", "hyperliquid", "hyperspot"];
-function isHL(ex) { return ex === "hyperliquid" || ex === "hyperspot"; }
-/* the coin name Hyperliquid wants on the wire, and back */
-function hlCoin(ex, s) { return ex === "hyperspot" ? HLSPOT[s] : s; }
-function hlBase(ex, coin) { return ex === "hyperspot" ? Object.keys(HLSPOT).find(b => HLSPOT[b] === coin) : coin; }
+const EX_ORDER = ["kraken", "binance", "hyperliquid", "twelvedata"];
+function isHL(ex) { return ex === "hyperliquid"; }
 /* "Kraken", "Binance", "Hyperliquid perp" */
 function venueName(ex) { return EX[ex].label + (EX[ex].note ? " " + EX[ex].note : ""); }
 /* Andy's standard lists (2026-11-09). "A" is Vaulta (formerly EOS). */
 const kr = b => ({ ex: "kraken", base: b, quote: "USD" });
 const hl = b => ({ ex: "hyperliquid", base: b, quote: "USDC" });
+const td = (b, q) => ({ ex: "twelvedata", base: b, quote: q });
 const PRESET_LISTS = [
   { id: "main", name: "Main", pairs: ["BTC", "ETH", "NEAR", "HYPE", "SOL", "A"].map(kr) },
   { id: "extended", name: "Extended", pairs: ["BTC", "ETH", "NEAR", "HYPE", "SOL", "A", "SUI", "BNB", "ZEC", "UNI"].map(kr) },
-  { id: "hyperliquid", name: "Hyperliquid", pairs: ["BTC", "ETH", "NEAR", "HYPE", "SOL", "SUI"].map(hl) }
+  { id: "hyperliquid", name: "Hyperliquid", pairs: ["BTC", "ETH", "NEAR", "HYPE", "SOL", "SUI"].map(hl) },
+  // Forex (2026-11-11): USD/AUD and AUD/JPY live from Kraken, the rest from Twelve Data
+  { id: "forex", name: "Forex", pairs: [{ ex: "kraken", base: "USD", quote: "AUD" }, { ex: "kraken", base: "AUD", quote: "JPY" }, td("AUD", "THB"), td("AUD", "SGD"), td("AUD", "VND")] }
 ];
 const PRESET_VER = "2026-11-09";   // bump to push a new standard set to every browser once
 const PRESET_KEY = "ticker-wall.preset";
@@ -1252,7 +1257,21 @@ function cleanPairs(arr) {
 function cleanName(s, fallback) { return (typeof s === "string" ? s.trim().replace(/\s+/g, " ").slice(0, 24) : "") || fallback; }
 function newListId() { return "l" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 function presetLists() { return PRESET_LISTS.map(l => ({ id: l.id, name: l.name, pairs: l.pairs.map(p => ({ ...p })) })); }
+/* Browsers that already have lists get the Forex list added once (their own lists are left alone). */
 function loadLists() {
+  loadListsBase();
+  try {
+    if (localStorage.getItem("ticker-wall.fx") !== "1") {
+      if (!lists.some(l => l.id === "forex")) {
+        const f = PRESET_LISTS.find(l => l.id === "forex");
+        lists.push({ id: f.id, name: f.name, pairs: f.pairs.map(p => ({ ...p })) });
+        localStorage.setItem(LISTS_KEY, JSON.stringify({ active: activeId, lists }));
+      }
+      localStorage.setItem("ticker-wall.fx", "1");
+    }
+  } catch (e) {}
+}
+function loadListsBase() {
   // One-time switch to the standard lists on every browser (Andy asked to replace, not merge)
   try {
     if (localStorage.getItem(PRESET_KEY) !== PRESET_VER) {
@@ -1301,7 +1320,7 @@ function save() {
   try { localStorage.setItem(LISTS_KEY, JSON.stringify({ active: activeId, lists })); } catch (e) {}
 }
 
-function sym(p) { return p.ex === "kraken" ? `${p.base}/${p.quote}` : isHL(p.ex) ? p.base : `${p.base}${p.quote}`; }
+function sym(p) { return p.ex === "kraken" || p.ex === "twelvedata" ? `${p.base}/${p.quote}` : isHL(p.ex) ? p.base : `${p.base}${p.quote}`; }
 function keyOf(p) { return `${p.ex}:${sym(p)}`; }
 function symsFor(ex) { return allPairs().filter(p => p.ex === ex).map(sym); }
 
@@ -1443,7 +1462,7 @@ function makePicker({ onPick, onCancel, isTaken, startValue = "", placeholder = 
     items = searchCoins(input.value);
     active = Math.min(active, Math.max(0, items.length - 1));
     if (!items.length) {
-      panel.innerHTML = `<div class="pk-empty">No coin matches “${esc(input.value.trim())}” on Kraken, Binance or Hyperliquid.</div>`;
+      panel.innerHTML = `<div class="pk-empty">No coin matches “${esc(input.value.trim())}” on any feed.</div>`;
     } else {
       panel.innerHTML = `<ul class="pk-list" role="listbox" aria-label="Coins" id="${id}-list">` + items.map((s, i) => {
         const exs = [...new Set(EX_ORDER.filter(ex => LISTS[ex][s]).map(ex => EX[ex].label))].join(" · ");
@@ -1568,7 +1587,7 @@ function buildWall() {
   if (listMode) buildList();
   else { listView.innerHTML = ""; for (const k in rowsByKey) delete rowsByKey[k]; }
   if (!pairs.length) {
-    wall.innerHTML = `<div class="empty"><h2>${esc(activeList().name)} is empty.</h2><div>Add a trading pair from Kraken, Binance or Hyperliquid.</div><button class="pill lg" type="button" id="emptyAdd">Add a pair</button></div>`;
+    wall.innerHTML = `<div class="empty"><h2>${esc(activeList().name)} is empty.</h2><div>Add a trading pair from Kraken, Binance, Hyperliquid or Twelve Data.</div><button class="pill lg" type="button" id="emptyAdd">Add a pair</button></div>`;
     document.getElementById("emptyAdd").onclick = () => { setEditing(true); addPicker.focus(); };
     fitWall();
     return;
@@ -1658,7 +1677,7 @@ function makeRow(l, p, i) {
   r.className = "row"; r.setAttribute("role", "listitem");
   r.dataset.key = k; r.dataset.list = l.id; r.dataset.i = i;
   r.setAttribute("aria-label", `${fullName(p)} on ${venueName(p.ex)}`);
-  const sub = venueName(p.ex);
+  const sub = EX[p.ex].poll ? EX[p.ex].label : venueName(p.ex);   // "delayed" would be cut off on a phone; tiles and the chart screen say it
   r.innerHTML = `${logoSpan(p.base)}<div class="r-name"><div class="r-pair" title="${esc(fullName(p))}"><span class="b">${esc(p.base)}</span><span class="q"><span class="sl"> / </span>${esc(p.quote)}</span></div><div class="r-sub" data-text="${esc(sub)}">${esc(sub)}</div></div>
     <canvas class="r-spark" aria-hidden="true"></canvas>
     <div class="r-price"><span class="num">—</span></div><div class="r-abs"></div><span class="r-chg"></span>
@@ -1834,7 +1853,7 @@ function paintFeeds() {
   const words = { live: "Live", connecting: "Connecting", retry: "Reconnecting", blocked: "Unreachable", idle: "Idle" };
   box.innerHTML = "";
   let worst = "";
-  // Hyperliquid perp and spot are two connections but one venue: one chip, showing the worse of the two
+  // feeds that share a name share one chip, showing the worst of them
   const rank = { blocked: 4, retry: 3, connecting: 2, idle: 1, live: 0 };
   const groups = new Map();
   for (const ex of [...new Set(allPairs().map(p => p.ex))]) {
@@ -2022,6 +2041,7 @@ function drawSpark(cv, k) {
    used for the daily candle), and sends only the last 10 candles. So open a short-lived
    connection for each of 4h, 1h and 15m candles, keep the snapshot, and close it. */
 function loadKrakenHistory(list) {
+  list = [...new Set(list.map(krWire))];   // a flipped market (USD/AUD) uses its twin's candles
   if (!list.length) return;
   [240, 60, 15].forEach(iv => {
     let ws;
@@ -2036,7 +2056,11 @@ function loadKrakenHistory(list) {
       else if (m.channel === "ohlc" && m.type === "snapshot" && Array.isArray(m.data)) {
         const by = {};
         m.data.forEach(d => (by[d.symbol] ||= []).push([Date.parse(d.interval_begin), +d.close]));
-        for (const s in by) { addLayer("kraken:" + s, iv, by[s].sort((a, b) => a[0] - b[0])); left.delete(s); }
+        for (const s in by) {
+          const pts = by[s].sort((a, b) => a[0] - b[0]);
+          addLayer("kraken:" + s, iv, pts); left.delete(s);
+          const mir = krMirror(s); if (mir) addLayer("kraken:" + mir, iv, pts.map(([t, c]) => [t, 1 / c]));
+        }
       }
       if (!left.size) finish();
     };
@@ -2048,7 +2072,7 @@ function reloadHistory() {
   loadKrakenHistory(symsFor("kraken"));
   symsFor("binance").forEach(loadBinanceHistory);
   symsFor("hyperliquid").forEach(s => loadHyperliquidHistory("hyperliquid", s));
-  symsFor("hyperspot").forEach(s => loadHyperliquidHistory("hyperspot", s));
+  tdReload();
 }
 /* Hyperliquid: one request for today's 15-minute candles. */
 async function hlCandles(coin, interval, startTime, endTime = Date.now()) {
@@ -2059,8 +2083,7 @@ async function hlCandles(coin, interval, startTime, endTime = Date.now()) {
   return Array.isArray(j) ? j : [];
 }
 async function loadHyperliquidHistory(ex, s) {
-  const day = utcDayStart(Date.now()), coin = hlCoin(ex, s);
-  if (!coin) return;
+  const day = utcDayStart(Date.now()), coin = s;
   try { addLayer(ex + ":" + s, 15, (await hlCandles(coin, "15m", day)).map(c => [+c.t, +c.c])); } catch (e) {}
 }
 
@@ -2106,7 +2129,7 @@ function paintFeedAlert() {
     const c = conns[ex];
     if (!feedDown(ex)) continue;
     const label = EX[ex].label;
-    const what = c.status === "blocked" ? `Can't reach ${label}` : c.everLive ? `${label} connection lost` : `Can't connect to ${label}`;
+    const what = c.problem || (c.status === "blocked" ? `Can't reach ${label}` : c.everLive ? `${label} connection lost` : `Can't connect to ${label}`);
     const since = c.lastMsg ? `Prices frozen since ${shortTime.format(c.lastMsg)}` : "No prices yet";
     const secs = c.retryAt ? Math.max(0, Math.ceil((c.retryAt - Date.now()) / 1000)) : 0;
     const when = c.timer && secs > 1 ? `retry in ${secs}s` : "reconnecting…";
@@ -2126,6 +2149,7 @@ document.getElementById("feedAlert").addEventListener("click", e => {
   connect(b.dataset.ex);
 });
 function ensure(ex) {
+  if (EX[ex].poll) { tdEnsure(); return; }
   const list = symsFor(ex);
   const c = conns[ex];
   if (!list.length) {
@@ -2137,6 +2161,7 @@ function ensure(ex) {
   if (c.ws && c.ws.readyState === 1) subscribe(ex, list);
 }
 function connect(ex) {
+  if (EX[ex].poll) { tdPoll(); return; }
   const c = conns[ex] || (conns[ex] = { urlIdx: 0, attempts: 0, fails: 0, subs: new Set() });
   clearTimeout(c.timer); c.timer = null;
   let ws;
@@ -2197,25 +2222,20 @@ function send(ex, obj) { const c = conns[ex]; if (c && c.ws && c.ws.readyState =
 function subscribe(ex, list) {
   const c = conns[ex];
   if (!c || !c.ws || c.ws.readyState !== 1) return;
-  let fresh = list.filter(s => !c.subs.has(s));
+  const fresh = list.filter(s => !c.subs.has(s));
   if (!fresh.length) return;
+  const had = new Set([...c.subs].map(krWire));   // Kraken markets already subscribed: a flipped twin shares its market
   fresh.forEach(s => c.subs.add(s));
-  if (ex === "hyperspot") {
-    // a coin with no spot market: say so once the market list is in; until then, wait for it
-    for (const s of fresh.filter(s => !hlCoin(ex, s))) {
-      c.subs.delete(s);
-      if (hlSpotReady) setErr(`${ex}:${s}`, `Hyperliquid has no ${s}/USDC spot market.`);
-    }
-    fresh = fresh.filter(s => hlCoin(ex, s));
-    if (!fresh.length) return;
-  }
   if (ex === "kraken") {
-    send(ex, { method: "subscribe", params: { channel: "ticker", symbol: fresh } });
-    send(ex, { method: "subscribe", params: { channel: "ohlc", symbol: fresh, interval: 1440 } });
+    const wire = [...new Set(fresh.map(krWire))].filter(w => !had.has(w));
+    if (wire.length) {
+      send(ex, { method: "subscribe", params: { channel: "ticker", symbol: wire } });
+      send(ex, { method: "subscribe", params: { channel: "ohlc", symbol: wire, interval: 1440 } });
+    }
     loadKrakenHistory(fresh);
   } else if (isHL(ex)) {
     // the daily candle carries everything: last trade (close), today's open, high and low
-    fresh.forEach(s => send(ex, { method: "subscribe", subscription: { type: "candle", coin: hlCoin(ex, s), interval: "1d" } }));
+    fresh.forEach(s => send(ex, { method: "subscribe", subscription: { type: "candle", coin: s, interval: "1d" } }));
     fresh.forEach(s => loadHyperliquidHistory(ex, s));
   } else {
     const params = [];
@@ -2238,10 +2258,14 @@ function unsubscribe(ex, s) {
   if (inAnyList(`${ex}:${s}`)) return;   // still on this or another list
   c.subs.delete(s);
   if (ex === "kraken") {
-    send(ex, { method: "unsubscribe", params: { channel: "ticker", symbol: [s] } });
-    send(ex, { method: "unsubscribe", params: { channel: "ohlc", symbol: [s], interval: 1440 } });
+    const w = krWire(s);
+    if ([...c.subs].some(x => krWire(x) === w)) return;   // its flipped twin still needs this market
+    send(ex, { method: "unsubscribe", params: { channel: "ticker", symbol: [w] } });
+    send(ex, { method: "unsubscribe", params: { channel: "ohlc", symbol: [w], interval: 1440 } });
   } else if (isHL(ex)) {
-    if (hlCoin(ex, s)) send(ex, { method: "unsubscribe", subscription: { type: "candle", coin: hlCoin(ex, s), interval: "1d" } });
+    send(ex, { method: "unsubscribe", subscription: { type: "candle", coin: s, interval: "1d" } });
+  } else if (EX[ex].poll) {
+    // nothing to cancel: the next poll leaves it out
   } else {
     send(ex, { method: "UNSUBSCRIBE", params: [s.toLowerCase() + "@ticker", s.toLowerCase() + "@kline_1d"], id: ++msgId });
   }
@@ -2251,7 +2275,7 @@ function onMessage(ex, raw) {
   let m; try { m = JSON.parse(raw); } catch (e) { return; }
   if (ex === "kraken") {
     if (m.channel === "ticker" && Array.isArray(m.data)) {
-      for (const d of m.data) apply("kraken:" + d.symbol, { last: +d.last, ch24: +d.change, pct24: +d.change_pct, high24: +d.high, low24: +d.low });
+      for (const d of m.data) krApply(d.symbol, { last: +d.last, ch24: +d.change, pct24: +d.change_pct, high24: +d.high, low24: +d.low });
     } else if (m.channel === "ohlc" && Array.isArray(m.data)) {
       const latest = {};
       for (const d of m.data) {
@@ -2262,7 +2286,7 @@ function onMessage(ex, raw) {
         const { t, d } = latest[s];
         const k = "kraken:" + s;
         if (data[k] && data[k].dayStart > t) continue;
-        apply(k, { open: +d.open, high: +d.high, low: +d.low, dayStart: t });
+        krApply(s, { open: +d.open, high: +d.high, low: +d.low, dayStart: t });
       }
     } else if (m.method === "subscribe" && m.success === false) {
       const s = m.symbol || ((m.error || "").match(/[A-Z0-9]+\/[A-Z0-9]+/) || [])[0];
@@ -2273,27 +2297,155 @@ function onMessage(ex, raw) {
       const [b, q] = s.split("/");
       const alts = quotesFor("kraken", b).filter(x => x !== q).slice(0, 3).map(x => `${b}/${x}`);
       setErr(k, alts.length ? `Kraken doesn't list ${s}. Try ${alts.join(" or ")}.` : `Kraken doesn't list ${s}.`);
+      const mir = krMirror(s);
+      if (mir) { conns.kraken.subs.delete(mir); setErr("kraken:" + mir, `Kraken doesn't list ${s}, so ${mir} isn't available.`); }
     }
   } else if (isHL(ex)) {
     if (m.channel === "candle" && m.data) {
       for (const c of Array.isArray(m.data) ? m.data : [m.data]) {
         if (!c || c.i !== "1d" || typeof c.s !== "string") continue;
-        const b = hlBase(ex, c.s);
-        if (!b) continue;
-        const k = ex + ":" + b;
+        const k = ex + ":" + c.s;
         if (data[k] && data[k].dayStart > +c.t) continue;
         apply(k, { last: +c.c, open: +c.o, high: +c.h, low: +c.l, dayStart: +c.t });
       }
     } else if (m.channel === "error" && typeof m.data === "string") {
       // e.g. "Invalid subscription {...coin: FOO...}": name the coin if we can find it
-      const c = symsFor(ex).find(x => { const w = hlCoin(ex, x); return w && (m.data.includes(`"${w}"`) || m.data.includes(`: ${w}`)); });
-      if (c) { conns[ex].subs.delete(c); setErr(ex + ":" + c, ex === "hyperspot" ? `Hyperliquid has no ${c}/USDC spot market.` : `Hyperliquid doesn't list a ${c} perp.`); }
+      const c = symsFor(ex).find(w => m.data.includes(`"${w}"`) || m.data.includes(`: ${w}`));
+      if (c) { conns[ex].subs.delete(c); setErr(ex + ":" + c, `Hyperliquid doesn't list a ${c} perp.`); }
     }
   } else if (m && m.e === "24hrTicker") {
     apply(`${ex}:${m.s}`, { last: +m.c, ch24: +m.p, pct24: +m.P, high24: +m.h, low24: +m.l });
   } else if (m && m.e === "kline" && m.k) {
     apply(`${ex}:${m.s}`, { open: +m.k.o, high: +m.k.h, low: +m.k.l, dayStart: +m.k.t });
   }
+}
+
+/* A Kraken price update for AUD/USD also goes, flipped, to a USD/AUD tile. */
+function krApply(s, v) {
+  apply("kraken:" + s, v);
+  const mir = krMirror(s);
+  if (mir) apply("kraken:" + mir, invPatch(v));
+}
+
+/* ======================================================================
+   Twelve Data (forex), polled. The free plan allows 8 credits a minute and 800 a day, and a pair's
+   quote costs one credit. So every pair is asked for about every 10 minutes (slower with more
+   pairs, and every 30 minutes while the forex market is shut). The key is Andy's free-plan key; it
+   sits in this page's source, which is public, and the worst anyone could do with it is use up the quota.
+   ====================================================================== */
+const TD_KEY = "722bf48141f8469fbe6b77671cd3d6f0";
+const TD_URL = "https://api.twelvedata.com";
+const tdEvery = n => Math.max(10, Math.ceil(n * 1440 / 650)) * 60000;
+const tdSpent = [];   // when each credit was spent in the last minute
+async function tdSpend(n) {
+  for (;;) {
+    const now = Date.now();
+    while (tdSpent.length && now - tdSpent[0] > 61000) tdSpent.shift();
+    if (tdSpent.length + n <= 7) { for (let i = 0; i < n; i++) tdSpent.push(now); return; }
+    await new Promise(r => setTimeout(r, Math.max(1000, 61050 - (now - tdSpent[0]))));
+  }
+}
+async function tdGet(path, params, credits) {
+  await tdSpend(credits);
+  const u = new URL(TD_URL + path);
+  for (const k in params) u.searchParams.set(k, params[k]);
+  u.searchParams.set("apikey", TD_KEY);
+  const r = await fetch(u);   // a network or CORS failure throws
+  let j = null; try { j = await r.json(); } catch (e) {}
+  if (j == null) throw new Error("HTTP " + r.status);
+  return j;
+}
+/* One pair comes back as itself, several come back as { "AUD/THB": {...}, ... } */
+function tdSplit(j, syms) {
+  if (!j || typeof j !== "object") return {};
+  if (syms.length === 1 && !(syms[0] in j)) return { [syms[0]]: j };
+  return j;
+}
+/* an error that covers every pair: a rejected key, or out of credits */
+function tdTop(j, syms) {
+  return j && j.status === "error" && (j.code === 401 || j.code === 403 || j.code === 429 || j.code >= 500) && !syms.some(s => s in j) ? j : null;
+}
+const tdMs = dt => Date.parse(String(dt).includes(" ") ? String(dt).replace(" ", "T") + "Z" : dt + "T00:00:00Z");
+const finite = o => Object.fromEntries(Object.entries(o).filter(([, v]) => v != null && isFinite(v)));
+function tdConn() { return conns.twelvedata || (conns.twelvedata = { subs: new Set(), hist: new Set(), status: "idle" }); }
+
+async function tdPoll() {
+  const c = tdConn();
+  clearTimeout(c.timer); c.timer = null; c.retryAt = 0;
+  const list = symsFor("twelvedata");
+  if (!list.length) { c.subs.clear(); c.hist.clear(); setStatus("twelvedata", "idle"); return; }
+  if (c.busy) { c.again = true; return; }   // a pair was added mid-poll: poll again straight after
+  c.busy = true;
+  if (c.status !== "live") setStatus("twelvedata", "connecting");
+  let wait = tdEvery(list.length), open = false, got = false, fail = null;
+  try {
+    for (let i = 0; i < list.length && !fail; i += 6) {
+      const chunk = list.slice(i, i + 6);
+      const j = await tdGet("/quote", { symbol: chunk.join(",") }, chunk.length);
+      if ((fail = tdTop(j, chunk))) break;
+      const by = tdSplit(j, chunk);
+      for (const s of chunk) {
+        const q = by[s], k = "twelvedata:" + s;
+        c.subs.add(s);
+        const last = q ? +q.close : NaN;
+        if (!q || q.status === "error" || !isFinite(last)) {
+          setErr(k, q && q.code === 400 ? `Twelve Data doesn't list ${s}.` : `No price from Twelve Data for ${s}.`);
+          continue;
+        }
+        got = true;
+        if (q.is_market_open === true || q.is_market_open === "true") open = true;
+        const ts = +q.timestamp, hi = +q.high, lo = +q.low;
+        apply(k, finite({ last, open: +q.open, high: hi, low: lo, dayStart: utcDayStart(ts > 0 ? ts * 1000 : Date.now()),
+          ch24: +q.change, pct24: +q.percent_change, high24: hi, low24: lo }));
+      }
+    }
+  } catch (e) { fail = { code: 0 }; }
+  c.busy = false;
+  if (fail) {
+    const key = fail.code === 401 || fail.code === 403;
+    c.problem = key ? "Twelve Data rejected the API key" : "";
+    wait = fail.code === 429 ? 65000 : 60000;
+    c.retryAt = Date.now() + wait;
+    setStatus("twelvedata", key ? "blocked" : "retry");
+  } else {
+    c.problem = ""; c.lastMsg = Date.now(); c.everLive = true;
+    if (got && !open) wait = Math.max(wait, 30 * 60000);   // forex is shut (weekend): ask less often
+    setStatus("twelvedata", "live");
+    tdHistory(list.filter(s => !c.hist.has(s)));
+  }
+  c.every = wait;
+  c.timer = setTimeout(tdPoll, c.again ? 800 : wait);
+  c.again = false;
+}
+/* Mini-chart history: today's 15-minute closes, one credit per pair, once (and again after a long sleep). */
+async function tdHistory(syms) {
+  const c = tdConn();
+  syms.forEach(s => c.hist.add(s));
+  c.histAt = Date.now();
+  for (let i = 0; i < syms.length; i += 6) {
+    const chunk = syms.slice(i, i + 6);
+    try {
+      const j = await tdGet("/time_series", { symbol: chunk.join(","), interval: "15min", outputsize: 100, timezone: "UTC", order: "asc" }, chunk.length);
+      const by = tdSplit(j, chunk);
+      for (const s of chunk) {
+        const v = by[s] && by[s].values;
+        if (!Array.isArray(v)) { c.hist.delete(s); continue; }
+        addLayer("twelvedata:" + s, 15, v.map(b => [tdMs(b.datetime), +b.close]).filter(p => isFinite(p[0]) && isFinite(p[1])));
+      }
+    } catch (e) { chunk.forEach(s => c.hist.delete(s)); }
+  }
+}
+function tdReload() {
+  const c = conns.twelvedata;
+  if (!c || Date.now() - (c.histAt || 0) < 30 * 60000) return;
+  c.hist.clear();
+  tdHistory(symsFor("twelvedata"));
+}
+function tdEnsure() {
+  const c = tdConn(), list = symsFor("twelvedata");
+  if (!list.length) { clearTimeout(c.timer); c.timer = null; c.subs.clear(); c.hist.clear(); if (c.status !== "idle") setStatus("twelvedata", "idle"); else paintFeeds(); return; }
+  if (c.busy) { c.again = true; return; }
+  if (!c.timer || list.some(s => !c.subs.has(s))) tdPoll();
 }
 
 /* ======================================================================
@@ -3288,6 +3440,8 @@ document.addEventListener("visibilitychange", () => {
   wake();
   reloadHistory();
   [...new Set(allPairs().map(p => p.ex))].forEach(ex => { const c = conns[ex]; if (!c || (!c.ws && !c.timer)) ensure(ex); });
+  const t = conns.twelvedata;
+  if (t && t.timer && !t.busy && Date.now() - (t.lastMsg || 0) > (t.every || 600000)) tdPoll();   // overdue after a sleep
 });
 
 let idleTimer;
@@ -3512,7 +3666,8 @@ function tick() {
   for (const k in tiles) {
     const d = data[k]; if (!d || !d.ts) continue;
     tiles[k].querySelector(".agt").textContent = ago(d.ts);
-    tiles[k].classList.toggle("stale", Date.now() - d.ts > 60000);
+    const slow = k.startsWith("twelvedata:");   // polled every few minutes, so "stale" is relative to that
+    tiles[k].classList.toggle("stale", Date.now() - d.ts > (slow ? ((conns.twelvedata && conns.twelvedata.every) || 600000) * 1.6 : 60000));
   }
   checkSilentFeeds();
   paintFeedAlert();   // keeps the "retrying in …" countdown current; only touches the page when it changes
@@ -3593,6 +3748,18 @@ var TV = (() => {   // var: paint() may run before this line, and checks typeof 
   }
   async function fetchCandles(p, m) {
     const s = sym(p);
+    const twin = p.ex === "kraken" ? KRAKEN_INV[s] : null;   // USD/AUD: AUD/USD candles, flipped
+    if (twin) {
+      const [b, q] = twin.split("/");
+      const list = await fetchCandles({ ex: "kraken", base: b, quote: q }, m);
+      return Object.assign(list.map(c => ({ t: c.t, o: 1 / c.o, h: 1 / c.l, l: 1 / c.h, c: 1 / c.c, v: c.v })), { short: list.short });
+    }
+    if (p.ex === "twelvedata") {
+      const TDIV = { 1: "1min", 5: "5min", 15: "15min", 60: "1h", 240: "4h", 1440: "1day", 10080: "1week" };
+      const j = await tdGet("/time_series", { symbol: s, interval: TDIV[m], outputsize: 500, timezone: "UTC", order: "asc" }, 1);
+      if (!j || j.status === "error" || !Array.isArray(j.values)) throw new Error("Twelve Data");
+      return j.values.map(b => ({ t: tdMs(b.datetime), o: +b.open, h: +b.high, l: +b.low, c: +b.close, v: +b.volume || 0 }));
+    }
     if (p.ex === "binance") {
       for (const host of ["https://data-api.binance.vision", "https://api.binance.com"]) {
         try {
@@ -3604,7 +3771,7 @@ var TV = (() => {   // var: paint() may run before this line, and checks typeof 
       throw new Error("Binance");
     }
     if (isHL(p.ex)) {
-      const list = await hlCandles(hlCoin(p.ex, s), BN[m], Date.now() - BARS * m * 60000);
+      const list = await hlCandles(s, BN[m], Date.now() - BARS * m * 60000);
       return list.map(c => ({ t: +c.t, o: +c.o, h: +c.h, l: +c.l, c: +c.c, v: +c.v }));
     }
     // Kraken: the REST API gives up to 720 candles. If it can't be reached, fall back to the live
@@ -3969,7 +4136,6 @@ Object.keys(EX).forEach(ensure);
 paintFeeds();
 refreshBinanceList();
 refreshHyperliquidList();
-refreshHyperspotList();
 wake();
 poke();
 </script>
